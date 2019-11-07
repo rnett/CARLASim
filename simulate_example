@@ -1,0 +1,3 @@
+#!/bin/bash
+
+./simulate.py Town01 50 200
