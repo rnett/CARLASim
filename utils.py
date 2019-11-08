@@ -1,6 +1,11 @@
+import gzip
 import os
 import warnings
+from pathlib import Path
+from typing import Union
 
+import ffmpeg
+import h5py
 import numpy as np
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -10,6 +15,36 @@ with warnings.catch_warnings():
     import tensorflow as tf
 
 tf.get_logger().setLevel('ERROR')
+
+
+# Returns x as a one-dimensional vector with each element
+# repeated n_repeats times.
+@tf.function
+def _repeat(x, n_repeats: int):
+    rep = tf.transpose(
+        tf.expand_dims(tf.ones(shape=tf.stack([
+            n_repeats,
+        ])), 1), [1, 0])
+    rep = tf.cast(rep, 'float32')
+    x = tf.matmul(tf.reshape(x, (-1, 1)), rep)
+    return tf.reshape(x, [-1])
+
+
+# Returns a "wrapped" version of the given coordinate.
+#
+# If the coord is out of bounds, it will be wrapped backwards or
+# forwards to the correct location.
+@tf.function
+def _wrap_coords(dim, width, dim_max, dim_min=np.float32(0)):
+    # wrap forward (< min)
+    dim_safe = tf.where(tf.less(dim, np.float32(0)),
+                        dim + width,
+                        dim)
+    # wrap backwards (> max)
+    dim_safe = tf.where(tf.greater(dim, dim_max),
+                        dim - width,
+                        dim)
+    return dim_safe
 
 
 @tf.function
@@ -28,39 +63,14 @@ def bilinear_sampler(imgs, coords, do_wrap=True, mask=None):
     Returns:
       A new sampled image [batch, height_t, width_t, channels]
     """
-
-    # Returns x as a one-dimensional vector with each element
-    # repeated n_repeats times.
-    def _repeat(x, n_repeats):
-        rep = tf.transpose(
-            tf.expand_dims(tf.ones(shape=tf.stack([
-                n_repeats,
-            ])), 1), [1, 0])
-        rep = tf.cast(rep, 'float32')
-        x = tf.matmul(tf.reshape(x, (-1, 1)), rep)
-        return tf.reshape(x, [-1])
-
-    # Returns a "wrapped" version of the given coordinate.
-    #
-    # If the coord is out of bounds, it will be wrapped backwards or
-    # forwards to the correct location.
-    def _wrap_coords(dim, width, dim_max, dim_min=np.float32(0)):
-        # wrap forward (< min)
-        dim_safe = tf.where(tf.less(dim, zero),
-                            dim + width,
-                            dim)
-        # wrap backwards (> max)
-        dim_safe = tf.where(tf.greater(dim, dim_max),
-                            dim - width,
-                            dim)
-        return dim_safe
+    coords = tf.tile(coords, [imgs.shape[0], 1, 1, 1])
 
     with tf.name_scope('image_sampling'):
         coords_x, coords_y = tf.split(coords, [1, 1], axis=3)
-        inp_size = imgs.get_shape()
-        coord_size = coords.get_shape()
-        out_size = coords.get_shape().as_list()
-        out_size[3] = imgs.get_shape().as_list()[3]
+        inp_size = imgs.shape
+        coord_size = coords.shape
+        out_size = coords.shape.as_list()
+        out_size[3] = imgs.shape.as_list()[3]
 
         coords_x = tf.cast(coords_x, 'float32')
         coords_y = tf.cast(coords_y, 'float32')
@@ -101,6 +111,10 @@ def bilinear_sampler(imgs, coords, do_wrap=True, mask=None):
         ## indices in the flat image to sample from
         dim2 = tf.cast(inp_size[2], 'float32')
         dim1 = tf.cast(inp_size[2] * inp_size[1], 'float32')
+
+        coord_size = [int(x) for x in coord_size]
+        out_size = [int(x) for x in out_size]
+
         base = tf.reshape(
             _repeat(
                 tf.cast(tf.range(coord_size[0]), 'float32') * dim1,
@@ -141,3 +155,69 @@ def bilinear_sampler(imgs, coords, do_wrap=True, mask=None):
         ])
 
         return output
+
+
+@tf.function
+def stitch_image_tensors(lut, images, depth_multiplier, rgb: bool):
+    lutx = tf.cast(lut[:, :, 0], 'float32')
+    luty = tf.cast(lut[:, :, 1], 'float32')
+
+    imgs = tf.cast(images, 'float32')
+
+    lutx_re = tf.expand_dims(lutx, axis=0)
+    lutx_re = tf.expand_dims(lutx_re, axis=-1)
+    luty_re = tf.expand_dims(luty, axis=0)
+    luty_re = tf.expand_dims(luty_re, axis=-1)
+
+    coords = tf.concat([lutx_re, luty_re], axis=-1)
+    pano = bilinear_sampler(imgs, coords)
+
+    if not rgb:
+        pano = tf.squeeze(pano, -1)
+        pano *= depth_multiplier
+        return tf.clip_by_value(pano, 0, 2 ** 16 - 1)
+    else:
+        return pano
+
+
+def save_video(data: np.ndarray, file: Union[Path, str], rgb: bool):
+    if isinstance(file, str):
+        file = Path(file)
+    file = file.absolute().resolve()
+
+    np.save(file=gzip.GzipFile(str(file).replace(".mkv", ".npy"), 'w'),
+            arr=data)
+    with h5py.File(str(file).replace(".mkv", ".hdf5"), 'w') as f:
+        f.create_dataset("data", data.shape, data.dtype, data,
+                         compression='gzip', compression_opts=9)
+
+    # writer = imageio.get_writer(str(file), format="FFMPEG", mode="I",
+    #                             codec="libx264",
+    #                             quality=None,
+    #                             bitrate=None,
+    #                             output_params=["-preset", "veryslow",
+    #                                            "-crf", "0"
+    #                                            ])
+    # for f in data:
+    #     writer.append_data(f)
+    # writer.close()
+
+    # doesn't work for depth (its 16bit)
+    n, height, width, channels = data.shape
+    process = (
+        ffmpeg
+            .input('pipe:', format='rawvideo',
+                   pix_fmt='rgb24' if rgb else 'gray',
+                   s='{}x{}'.format(width, height))
+            .output(str(file), pix_fmt='yuv420p', vcodec='libx264',
+                    preset='veryslow', crf='0')
+            .overwrite_output()
+            .run_async(pipe_stdin=True)
+    )
+    for frame in data:
+        process.stdin.write(
+            frame
+                .tobytes()
+        )
+    process.stdin.close()
+    process.wait()

@@ -91,7 +91,7 @@ if __name__ == '__main__':
                         help='Port to look for carla server at.')
 
     parser.add_argument("--ticks", "-t",
-                        default=1000,
+                        default=20 * 1000,
                         type=int,
                         help="Number of ticks to run the simulation for (an "
                              "image is saved every 20 ticks).")
@@ -151,8 +151,6 @@ if __name__ == '__main__':
             port=str(args.port),
             car_idx=car_idx,
             overwrite=args.overwrite)
-
-        # TODO detect and prompt for existing
 
     except Exception as e:
         if server is not None:

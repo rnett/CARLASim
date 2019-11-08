@@ -1,3 +1,0 @@
-#!/bin/bash
-
-./stitch.py sides_to_cylindrical.lut sides_to_spherical.lut -s /data/carla/town01/clear/noon/cars_50_peds_200 --remake_luts
