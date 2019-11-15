@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import gc
 import os
 import warnings
 from pathlib import Path
@@ -196,9 +197,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if 'single' in args:
+    if args.single is not None:
         recordings = [Recording.from_dir(d) for d in args.single]
-    elif 'all' in args:
+    elif args.all is not None:
         recordings = Recording.all_in_dir(args.all)
     else:
         print(
@@ -215,11 +216,15 @@ if __name__ == '__main__':
 
             if not args.no_cylindrical:
                 _stich(r, args.cylindrical_lut, args.batch_size, False, True)
+                gc.collect()
                 _stich(r, args.cylindrical_lut, args.batch_size, False, False)
+                gc.collect()
 
             if not args.no_spherical:
                 _stich(r, args.spherical_lut, args.batch_size, True, True)
+                gc.collect()
                 _stich(r, args.spherical_lut, args.batch_size, True, False)
+                gc.collect()
 
             # save pinhole frames in matching formats
 

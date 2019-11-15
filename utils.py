@@ -218,8 +218,8 @@ def save_video(data: np.ndarray, file: Union[Path, str], rgb: bool, samples: boo
                              compression='gzip', compression_opts=9)
 
         if samples:
-            data = (data / 256).astype('uint8')
-            imageio.imwrite(file.parent / "sample_depth.png", np.sqrt(data[10]))
+            data = np.log((data / 256).astype('uint8'))
+            imageio.imwrite(file.parent / "sample_depth.png", data[10])
             n, height, width, channels = data.shape
             process = (
                 ffmpeg

@@ -98,24 +98,26 @@ class SimConfig:
 
         parts = name.strip('/').split('/')
 
-        town_name = parts[0].capitalize()
+        town_name = parts[0]
 
         town = None
 
         for t in list(City):
-            if t.name == town_name:
+            if t.name.lower() == town_name.lower():
                 town = t
+                break
 
         if town is None:
             raise ValueError(f"No town found for name {parts[0]}")
 
-        rain_name = parts[1].capitalize()
+        rain_name = parts[1]
 
         rain = None
 
         for t in list(Rain):
-            if t.name == rain_name:
+            if t.name.lower() == rain_name.lower():
                 rain = t
+                break
 
         if rain is None:
             raise ValueError(f"No rain setting found for name {parts[1]}")
