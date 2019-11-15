@@ -61,7 +61,7 @@ class CarlaSim:
 
             # Once we have a client we can retrieve the world that is currently
             # running.
-            print(self.client.get_available_maps())
+            # print(self.client.get_available_maps())
             self.world = self.client.load_world(self.config.city.map)
 
             # The world contains the list blueprints that we can use for

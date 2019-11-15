@@ -2,6 +2,7 @@
 import argparse
 import glob
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -31,9 +32,24 @@ def launch_server(carla_script: str, extra_args: List[str]):
 
 def simulate(city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, sunset: bool = False,
              car_idx: int = None, output_dir: str = '/data/carla/',
-             carla: str = "/home/rnett/carla/CARLA_0.9.6/CarlaUE4.sh", carla_args: str = "",
+             carla: str = "/home/rnett/carla/CARLA_0.9.6/CarlaUE4.sh", carla_args: List[str] = [""],
              host: str = 'localhost', port: str = '2000', frames: int = 1000, seed: int = 123,
              overwrite: bool = True):
+
+    config = SimConfig(cars, pedestrians, city, rain,
+                      sunset)
+
+    output_folder = output_dir + config.folder_name + '/'
+
+    if os.path.exists(output_folder):
+        if overwrite:
+            shutil.rmtree(output_folder)
+        else:
+            print(
+                f"Output folder {output_folder} already exists and "
+                f"'overwrite' is false.")
+            raise FileExistsError
+
     if carla != "":
         server = launch_server(carla, carla_args)
         time.sleep(5)
@@ -42,8 +58,7 @@ def simulate(city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, s
 
     try:
         sim = CarlaSim(
-            SimConfig(cars, pedestrians, city, rain,
-                      sunset),
+            config,
             base_output_folder=output_dir,
             seed=seed,
             host=str(host),
@@ -57,6 +72,7 @@ def simulate(city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, s
         raise e
 
     try:
+        print("Saving in ", str(output_dir))
         pbar = tqdm(total=frames, desc="Frames", unit="frames")
         for i in range(frames * 20):
             if sim.tick():
