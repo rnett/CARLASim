@@ -33,11 +33,11 @@ class SplitFrame:
 
     @property
     def rgb_data(self) -> Dict[Side, np.ndarray]:
-        return {k: imageio.imread(v) for k, v in self.rgb_files.items()}
+        return {k: imageio.imread(v)[:, :, :-1] for k, v in self.rgb_files.items()}
 
     @property
     def depth_data(self) -> Dict[Side, np.ndarray]:
-        return {k: imageio.imread(v) for k, v in self.rgb_files.items()}
+        return {k: imageio.imread(v) for k, v in self.depth_files.items()}
 
     def __getitem__(self, side: Side) -> SingleFrame:
         return SingleFrame(self.frame, self.rgb_files[side],
@@ -71,7 +71,7 @@ class RecordingData(ABC):
             yield None
 
 
-class PinholeRecordingData(RecordingData):
+class RawRecordingData(RecordingData):
     def __init__(self, data_dir: Path):
         super().__init__(data_dir)
         self._frames = None
@@ -151,7 +151,7 @@ class PinholeRecordingData(RecordingData):
 
 class SingleSideRecordingData(RecordingData):
 
-    def __init__(self, side: Side, all_sides: PinholeRecordingData):
+    def __init__(self, side: Side, all_sides: RawRecordingData):
         super().__init__(all_sides.data_dir)
         self._frames = [x[side] for x in all_sides.frames]
 
@@ -219,10 +219,12 @@ class Recording:
         self.base_dir = base_dir.absolute().resolve()
 
         self.base_data_dir = self.base_dir / config.folder_name
+        self.raw_data_dir = self.base_data_dir / "raw"
         self.pinhole_data_dir = self.base_data_dir / "pinhole"
         self.spherical_data_dir = self.base_data_dir / "spherical"
         self.cylindrical_data_dir = self.base_data_dir / "cylindrical"
 
+        self._raw = None
         self._pinhole = None
         self._spherical = None
         self._cylindrical = None
@@ -234,9 +236,16 @@ class Recording:
         return str(self.base_data_dir)
 
     @property
-    def pinhole(self) -> PinholeRecordingData:
+    def raw(self) -> RawRecordingData:
+        if self._raw is None:
+            self._raw = RawRecordingData(self.raw_data_dir)
+
+        return self._raw
+
+    @property
+    def pinhole(self) -> RawRecordingData:
         if self._pinhole is None:
-            self._pinhole = PinholeRecordingData(self.pinhole_data_dir)
+            self._pinhole = RawRecordingData(self.pinhole_data_dir)
 
         return self._pinhole
 

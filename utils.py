@@ -1,4 +1,3 @@
-import gzip
 import os
 import warnings
 from pathlib import Path
@@ -6,6 +5,7 @@ from typing import Union
 
 import ffmpeg
 import h5py
+import imageio
 import numpy as np
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -130,7 +130,7 @@ def bilinear_sampler(imgs, coords, do_wrap=True, mask=None):
 
         ## ignore pixels under the mask (weight = 0)
         if mask is not None:
-            imgs = imgs * mask
+            imgs = tf.math.sign(mask - 1) + imgs * mask
 
         ## sample from imgs
         imgs_flat = tf.reshape(imgs, tf.stack([-1, inp_size[3]]))
@@ -158,7 +158,7 @@ def bilinear_sampler(imgs, coords, do_wrap=True, mask=None):
 
 
 @tf.function
-def stitch_image_tensors(lut, images, depth_multiplier, rgb: bool):
+def stitch_image_tensors(lut, images, depth_multiplier, mask, rgb: bool):
     lutx = tf.cast(lut[:, :, 0], 'float32')
     luty = tf.cast(lut[:, :, 1], 'float32')
 
@@ -170,54 +170,70 @@ def stitch_image_tensors(lut, images, depth_multiplier, rgb: bool):
     luty_re = tf.expand_dims(luty_re, axis=-1)
 
     coords = tf.concat([lutx_re, luty_re], axis=-1)
-    pano = bilinear_sampler(imgs, coords)
+
+    if not rgb:
+        pano = bilinear_sampler(imgs, coords, mask=mask)
+    else:
+        pano = bilinear_sampler(imgs, coords)
 
     if not rgb:
         pano = tf.squeeze(pano, -1)
-        pano *= depth_multiplier
-        return tf.clip_by_value(pano, 0, 2 ** 16 - 1)
+        if depth_multiplier is not None:
+            pano *= depth_multiplier
+        return tf.clip_by_value(pano, -1, 2 ** 16 - 1)
     else:
         return pano
 
 
-def save_video(data: np.ndarray, file: Union[Path, str], rgb: bool):
+def save_video(data: np.ndarray, file: Union[Path, str], rgb: bool, samples: bool = False):
     if isinstance(file, str):
         file = Path(file)
     file = file.absolute().resolve()
 
-    np.save(file=gzip.GzipFile(str(file).replace(".mkv", ".npy"), 'w'),
-            arr=data)
-    with h5py.File(str(file).replace(".mkv", ".hdf5"), 'w') as f:
-        f.create_dataset("data", data.shape, data.dtype, data,
-                         compression='gzip', compression_opts=9)
-
-    # writer = imageio.get_writer(str(file), format="FFMPEG", mode="I",
-    #                             codec="libx264",
-    #                             quality=None,
-    #                             bitrate=None,
-    #                             output_params=["-preset", "veryslow",
-    #                                            "-crf", "0"
-    #                                            ])
-    # for f in data:
-    #     writer.append_data(f)
-    # writer.close()
-
     # doesn't work for depth (its 16bit)
-    n, height, width, channels = data.shape
-    process = (
-        ffmpeg
-            .input('pipe:', format='rawvideo',
-                   pix_fmt='rgb24' if rgb else 'gray',
-                   s='{}x{}'.format(width, height))
-            .output(str(file), pix_fmt='yuv420p', vcodec='libx264',
-                    preset='veryslow', crf='0')
-            .overwrite_output()
-            .run_async(pipe_stdin=True)
-    )
-    for frame in data:
-        process.stdin.write(
-            frame
-                .tobytes()
+    if rgb:
+        if samples:
+            imageio.imwrite(file.parent / "sample_rgb.png", data[10])
+
+        n, height, width, channels = data.shape
+        process = (
+            ffmpeg
+                .input('pipe:', format='rawvideo',
+                       pix_fmt='rgb24',
+                       s='{}x{}'.format(width, height))
+                .output(str(file), pix_fmt='yuv420p', vcodec='libx264',
+                        preset='veryslow', crf='0')
+                .overwrite_output()
+                .global_args('-loglevel', 'quiet')
+                .run_async(pipe_stdin=True)
         )
-    process.stdin.close()
-    process.wait()
+        for frame in data:
+            process.stdin.write(frame.tobytes())
+
+        process.stdin.close()
+        process.wait()
+    else:
+        with h5py.File(str(file).replace(".mkv", ".hdf5"), 'w') as f:
+            f.create_dataset("data", data.shape, data.dtype, data,
+                             compression='gzip', compression_opts=9)
+
+        if samples:
+            data = (data / 256).astype('uint8')
+            imageio.imwrite(file.parent / "sample_depth.png", np.sqrt(data[10]))
+            n, height, width, channels = data.shape
+            process = (
+                ffmpeg
+                    .input('pipe:', format='rawvideo',
+                           pix_fmt='gray',
+                           s='{}x{}'.format(width, height))
+                    .output(str(file), pix_fmt='yuv420p', vcodec='libx264',
+                            preset='veryslow', crf='0')
+                    .overwrite_output()
+                    .global_args('-loglevel', 'quiet')
+                    .run_async(pipe_stdin=True)
+            )
+            for frame in data:
+                process.stdin.write(frame.tobytes())
+
+            process.stdin.close()
+            process.wait()

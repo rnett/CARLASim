@@ -81,7 +81,7 @@ def make_spherical_lut(lut_file):
             # local_phi = np.arcsin(
             #     y / np.sqrt(x ** 2 + y ** 2 + mag ** 2))
 
-            # project back to pinhole
+            # project back to raw
             x = focal * x / np.abs(mag) + c_x
             y = focal * y / np.abs(mag) + c_y
 
@@ -133,7 +133,7 @@ def make_cylindrical_lut(lut_file):
         for c in tqdm(range(output_width), desc='Width', unit='pixel'):
             theta = thetas[c]
 
-            # select pinhole image
+            # select raw image
             if theta >= -3 * np.pi / 4 and theta < -np.pi / 4:
                 ind = 1
                 theta_offset = np.pi / 2  # left
@@ -152,7 +152,7 @@ def make_cylindrical_lut(lut_file):
             Y = height
             Z = np.cos(theta + theta_offset)
 
-            # project to pinhole image
+            # project to raw image
             x = focal * X / Z + c_x
             y = focal * Y / Z + c_y
 

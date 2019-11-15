@@ -29,10 +29,50 @@ def launch_server(carla_script: str, extra_args: List[str]):
     return subprocess.Popen(args, preexec_fn=os.setsid)
 
 
-if __name__ == '__main__':
+def simulate(city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, sunset: bool = False,
+             car_idx: int = None, output_dir: str = '/data/carla/',
+             carla: str = "/home/rnett/carla/CARLA_0.9.6/CarlaUE4.sh", carla_args: str = "",
+             host: str = 'localhost', port: str = '2000', frames: int = 1000, seed: int = 123,
+             overwrite: bool = True):
+    if carla != "":
+        server = launch_server(carla, carla_args)
+        time.sleep(5)
+    else:
+        server = None
 
+    try:
+        sim = CarlaSim(
+            SimConfig(cars, pedestrians, city, rain,
+                      sunset),
+            base_output_folder=output_dir,
+            seed=seed,
+            host=str(host),
+            port=str(port),
+            car_idx=car_idx,
+            overwrite=overwrite)
+
+    except Exception as e:
+        if server is not None:
+            os.killpg(os.getpgid(server.pid), signal.SIGTERM)
+        raise e
+
+    try:
+        pbar = tqdm(total=frames, desc="Frames", unit="frames")
+        for i in range(frames * 20):
+            if sim.tick():
+                pbar.update()
+        # sim.end()
+    finally:
+        # sim.end()
+        if server is not None:
+            os.killpg(os.getpgid(server.pid), signal.SIGKILL)
+        return
+    return
+
+
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description="Run CARLA simulation and save pinhole images")
+        description="Run CARLA simulation and save raw images")
 
     parser.add_argument("city",
                         choices=[c.name for c in list(City)],
@@ -52,11 +92,12 @@ if __name__ == '__main__':
                         choices=[r.name for r in list(Rain)],
                         help="Rain weather to simulate with.")
 
-    parser.add_argument("sunset",
-                        default=False,
-                        type=bool,
+    parser.add_argument("time",
+                        default='Noon',
+                        type=str,
+                        choices=["Noon", "Sunset"],
                         nargs='?',
-                        help="Whether to simulate at sunset.")
+                        help="Time of the simulation: can be Noon or Sunset.")
 
     parser.add_argument("--car_idx",
                         type=int,
@@ -90,9 +131,15 @@ if __name__ == '__main__':
                         type=int,
                         help='Port to look for carla server at.')
 
-    parser.add_argument("--ticks", "-t",
-                        default=20 * 1000,
+    parser.add_argument("--frames", "-f",
                         type=int,
+                        nargs='?',
+                        help="Number of frames to run the simulation for ('frame' == image saved, a frame is saved "
+                             "every 20 ticks).  If --ticks/-t is also present, must be match (frames * 20 == ticks).")
+
+    parser.add_argument("--ticks", "-t",
+                        type=int,
+                        nargs='?',
                         help="Number of ticks to run the simulation for (an "
                              "image is saved every 20 ticks).")
 
@@ -108,61 +155,50 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if args.carla != "":
-        server = launch_server(args.carla, args.carla_args)
-        time.sleep(5)
+    city = None
+    for c in list(City):
+        if args.city.lower() == c.name.lower():
+            city = c
+            break
+
+    if city is None:
+        print(
+            f"Given city {city} is not a valid city.  Try one of "
+            f"{[c.name for c in list(City)]}")
+
+    rain = None
+    for r in list(Rain):
+        if args.rain.lower() == r.name.lower():
+            rain = r
+            break
+
+    if rain is None:
+        print(
+            f"Given rain status {city} is not a valid rain status.  "
+            f"Try one of {[r.name for r in list(Rain)]}")
+
+    car_idx = None
+    if 'car_idx' in args:
+        car_idx = car_idx
+
+    if args.frames is not None and args.ticks is not None:
+        frames = args.frames
+
+        if frames != args.ticks / 20:
+            print(
+                f"Frames and ticks both specified, must match.  Got {frames} frames ({frames * 20} ticks) "
+                f"and {args.ticks} ticks")
+            quit(1)
+    elif args.frames is not None:
+        frames = args.frames
+    elif args.ticks is not None:
+
+        if args.ticks % 20 != 0:
+            print("Ticks must be divisible by 20.")
+
+        frames = int(args.ticks / 20)
     else:
-        server = None
+        frames = 1000
 
-    try:
-
-        city = None
-        for c in list(City):
-            if args.city.lower() == c.name.lower():
-                city = c
-                break
-
-        if city is None:
-            print(
-                f"Given city {args.city} is not a valid city.  Try one of "
-                f"{[c.name for c in list(City)]}")
-
-        rain = None
-        for r in list(Rain):
-            if args.rain.lower() == r.name.lower():
-                rain = r
-                break
-
-        if rain is None:
-            print(
-                f"Given rain status {args.city} is not a valid rain status.  "
-                f"Try one of {[r.name for r in list(Rain)]}")
-
-        car_idx = None
-        if 'car_idx' in args:
-            car_idx = args.car_idx
-
-        sim = CarlaSim(
-            SimConfig(args.cars, args.pedestrians, city, rain,
-                      args.sunset),
-            base_output_folder=args.output_dir,
-            seed=args.seed,
-            host=str(args.host),
-            port=str(args.port),
-            car_idx=car_idx,
-            overwrite=args.overwrite)
-
-    except Exception as e:
-        if server is not None:
-            os.killpg(os.getpgid(server.pid), signal.SIGTERM)
-        raise e
-
-    try:
-        for i in tqdm(range(args.ticks), desc="Ticks", unit="ticks"):
-            sim.tick()
-        sim.end()
-    finally:
-        sim.end()
-        if server is not None:
-            os.killpg(os.getpgid(server.pid), signal.SIGKILL)
-        quit()
+    simulate(city, args.cars, args.pedestrians, rain, args.time == "Sunset", car_idx, args.output_dir, args.carla,
+             args.carla_args, args.host, args.port, frames, args.seed, args.overwrite)

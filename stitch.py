@@ -7,6 +7,7 @@ from typing import Union
 
 import numpy as np
 
+import utils
 from utils import save_video, stitch_image_tensors
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -21,7 +22,7 @@ tf.get_logger().setLevel('ERROR')
 from tqdm import tqdm
 
 import carla_sim
-from recordings import Recording
+from recordings import Recording, SplitFrame
 from sides import Side
 
 
@@ -88,7 +89,7 @@ def _stich(recording: Recording, lut: Union[str, Path], batch_size,
     else:
         concat_shape = (im_shape[0], im_shape[1] * 4, im_shape[2])
 
-    frames = recording.pinhole.frames
+    frames = recording.raw.frames
 
     pbar = tqdm(
         desc=f"Stitching {'spherical' if spherical else 'cylindrical'} "
@@ -121,12 +122,23 @@ def _stich(recording: Recording, lut: Union[str, Path], batch_size,
 
     for batch in _batch_frames(frames, batch_size, concat_shape, im_type,
                                spherical, rgb):
+
+        if not rgb:
+            mask = np.logical_not(batch == 10000).astype('float32')  # np.isclose(batch, 10000, atol=0, rtol=0)
+        else:
+            mask = None
+
         batch_frames = np.array(
             stitch_image_tensors(lut[:, :, 0:2],
                                  batch,
                                  depth_multiplier,
+                                 mask,
                                  rgb)).astype(
             im_type)
+
+        # if mask is not None:
+        #     batch_frames[batch_frames == 0] = -1
+
         pbar.update(len(batch_frames))
         video_frames[frame_num:frame_num + len(batch_frames)] = batch_frames
         frame_num += len(batch_frames)
@@ -134,19 +146,19 @@ def _stich(recording: Recording, lut: Union[str, Path], batch_size,
     if not rgb:
         video_frames = video_frames[:, :, :, np.newaxis]
 
-    print("Saving...\r")
     save_video(video_frames,
                (
                    recording.spherical.data_dir if spherical else
                    recording.cylindrical.data_dir)
                / f"{'rgb' if rgb else 'depth'}.mkv",
                rgb)
+    return video_frames
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
-        description="Stitch pinhole images into cylindrical and spherical "
+        description="Stitch raw images into cylindrical and spherical "
                     "panoramas.")
 
     parser.add_argument("cylindrical_lut",
@@ -198,9 +210,9 @@ if __name__ == '__main__':
 
         # TODO detect existing
 
-        parent = tqdm(recordings, desc="Recordings", unit='recording')
+        for r in tqdm(recordings, desc="Recordings", unit='recording'):
+            r: Recording
 
-        for r in parent:
             if not args.no_cylindrical:
                 _stich(r, args.cylindrical_lut, args.batch_size, False, True)
                 _stich(r, args.cylindrical_lut, args.batch_size, False, False)
@@ -208,3 +220,25 @@ if __name__ == '__main__':
             if not args.no_spherical:
                 _stich(r, args.spherical_lut, args.batch_size, True, True)
                 _stich(r, args.spherical_lut, args.batch_size, True, False)
+
+            # save pinhole frames in matching formats
+
+            rgb_frames = {k: np.empty(shape=(len(r.raw.frames),) + v.shape, dtype=v.dtype) for k, v in
+                          r.raw.frames[0].rgb_data.items()}
+            depth_frames = {k: np.empty(shape=(len(r.raw.frames),) + v.shape, dtype=v.dtype) for k, v in
+                            r.raw.frames[0].depth_data.items()}
+
+            for i, frame in tqdm(enumerate(r.raw.frames), desc="Collecting frames", unit='frame',
+                                 total=len(r.raw.frames)):
+                frame: SplitFrame
+                for k, v in frame.rgb_data.items():
+                    rgb_frames[k][i] = v
+                for k, v in frame.depth_data.items():
+                    depth_frames[k][i] = v
+
+            for side in tqdm(rgb_frames.keys(), desc="Saving sides", unit="side", total=len(list(Side))):
+                r.pinhole_data_dir.mkdir(exist_ok=True)
+
+                utils.save_video(rgb_frames[side], r.pinhole_data_dir / f"{side.name.lower()}_rgb.mkv", True)
+                utils.save_video(depth_frames[side][:, :, :, np.newaxis],
+                                 r.pinhole_data_dir / f"{side.name.lower()}_depth.mkv", False)

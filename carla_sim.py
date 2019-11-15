@@ -48,8 +48,8 @@ class CarlaSim:
             else:
                 print(
                     f"Output folder {self.output_folder} already exists and "
-                    f"'overwrite' is false.  Quiting")
-                raise Exception
+                    f"'overwrite' is false.")
+                raise FileExistsError
 
         try:
             # First of all, we need to create the client that will send the
@@ -63,7 +63,6 @@ class CarlaSim:
             # running.
             print(self.client.get_available_maps())
             self.world = self.client.load_world(self.config.city.map)
-            self.world.set_weather(config.weather.params)
 
             # The world contains the list blueprints that we can use for
             # adding new
@@ -225,6 +224,7 @@ class CarlaSim:
             self.world.get_spectator().set_transform(self.car.get_transform())
 
             self.add_sensors()
+            self.world.set_weather(config.weather.params)
 
             settings = self.world.get_settings()
             settings.synchronous_mode = True
@@ -283,7 +283,7 @@ class CarlaSim:
             images = self.rgb_cameras.pop(frame)
             for k, v in images.items():
                 v.save_to_disk(
-                    self.output_folder + f"pinhole/{k.name.lower()}_"
+                    self.output_folder + f"raw/{k.name.lower()}_"
                                          f"{int(self.ticks / 20)}_rgb.png")
 
         if self.ticks % 20 == 0:
@@ -292,11 +292,13 @@ class CarlaSim:
                 norm_depth = image_converter.depth_to_array(v)
 
                 imageio.imwrite(
-                    self.output_folder + f"pinhole/{k.name.lower()}_"
+                    self.output_folder + f"raw/{k.name.lower()}_"
                                          f"{int(self.ticks / 20)}_depth.png",
                     (norm_depth * DEPTH_MULTIPLIER).astype('uint16'))
 
         self.ticks += 1
+
+        return (self.ticks - 1) % 20 == 0
 
     def end(self):
         for a in self.cars:

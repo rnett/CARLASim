@@ -14,48 +14,36 @@ class Rain(Enum):
     Hard = 7
 
 
+def _weather_params(cloudyness: int, precipitation: int, precipitation_deposits: int, wind_intensity: float,
+                    sunset: bool):
+    if sunset:
+        sun_alt_angel = 15
+    else:
+        sun_alt_angel = 75
+
+    return carla.WeatherParameters(cloudyness, precipitation, precipitation_deposits, wind_intensity, 0, sun_alt_angel)
+
+
 class Weather:
     def __init__(self, rain: Rain, sunset: bool = False):
         self.rain = rain
         self.sunset = sunset
 
         try:
-
             if rain is Rain.Clear:
-                if sunset:
-                    self.params = carla.WeatherParameters.ClearSunset
-                else:
-                    self.params = carla.WeatherParameters.ClearNoon
+                self.params = _weather_params(1, 0, 0, 0.2, sunset)
             elif rain is Rain.Cloudy:
-                if sunset:
-                    self.params = carla.WeatherParameters.CloudySunset
-                else:
-                    self.params = carla.WeatherParameters.CloudyNoon
+                self.params = _weather_params(80, 0, 0, 0.35, sunset)
             elif rain is Rain.Wet:
-                if sunset:
-                    self.params = carla.WeatherParameters.WetSunset
-                else:
-                    self.params = carla.WeatherParameters.WetNoon
+                self.params = _weather_params(10, 0, 50, 0.35, sunset)
             elif rain is Rain.WetCloudy:
-                if sunset:
-                    self.params = carla.WeatherParameters.WetCloudySunset
-                else:
-                    self.params = carla.WeatherParameters.WetCloudyNoon
+                self.params = _weather_params(80, 0, 60, 0.35, sunset)
             elif rain is Rain.Soft:
-                if sunset:
-                    self.params = carla.WeatherParameters.SoftRainSunset
-                else:
-                    self.params = carla.WeatherParameters.SoftRainNoon
+                self.params = _weather_params(70, 15, 60, 0.35, sunset)
             elif rain is Rain.Mid:
-                if sunset:
-                    self.params = carla.WeatherParameters.MidRainSunset
-                else:
-                    self.params = carla.WeatherParameters.MidRainyNoon
+                self.params = _weather_params(80, 55, 70, 0.5, sunset)
             else:  # Rain.Hard
-                if sunset:
-                    self.params = carla.WeatherParameters.HardRainSunset
-                else:
-                    self.params = carla.WeatherParameters.HardRainNoon
+                self.params = _weather_params(90, 85, 100, 1, sunset)
 
         except AttributeError as ae:
             if str(ae) == "module 'carla' has no attribute 'WeatherParameters'":
