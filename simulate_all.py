@@ -8,7 +8,6 @@ from simulate import simulate
 np.random.seed(645)
 
 sims = []
-
 for city in list(City):
     for rain in list(Rain):
 
