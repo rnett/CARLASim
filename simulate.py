@@ -7,6 +7,7 @@ import signal
 import subprocess
 import sys
 import time
+from pathlib import Path
 from typing import List
 
 from tqdm import tqdm
@@ -34,14 +35,14 @@ def simulate(city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, s
              car_idx: int = None, output_dir: str = '/data/carla/',
              carla: str = "/home/rnett/carla/CARLA_0.9.6/CarlaUE4.sh", carla_args: List[str] = [""],
              host: str = 'localhost', port: str = '2000', frames: int = 1000, seed: int = 123,
-             overwrite: bool = True):
+             overwrite: bool = True, index: int = 0):
 
     config = SimConfig(cars, pedestrians, city, rain,
-                      sunset)
+                      sunset, index)
 
-    output_folder = output_dir + config.folder_name + '/'
+    output_folder = Path(output_dir) /  config.folder_name
 
-    if os.path.exists(output_folder):
+    if output_folder.exists():
         if overwrite:
             shutil.rmtree(output_folder)
         else:
@@ -72,8 +73,7 @@ def simulate(city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, s
         raise e
 
     try:
-        print("Saving in ", str(output_dir))
-        pbar = tqdm(total=frames, desc="Frames", unit="frames")
+        pbar = tqdm(total=frames, desc="Sim to " + str(output_folder), unit="frames")
         for i in range(frames * 20):
             if sim.tick():
                 pbar.update()
@@ -164,6 +164,12 @@ if __name__ == '__main__':
                         type=int,
                         help="RNG Seed")
 
+    parser.add_argument("--index",
+                        default=0,
+                        type=int,
+                        help="Index, used to differentiate multiple runs with the same settings.")
+
+
     parser.add_argument("--no_overwrite",
                         dest='overwrite',
                         action='store_false',
@@ -217,4 +223,4 @@ if __name__ == '__main__':
         frames = 1000
 
     simulate(city, args.cars, args.pedestrians, rain, args.time == "Sunset", car_idx, args.output_dir, args.carla,
-             args.carla_args, args.host, args.port, frames, args.seed, args.overwrite)
+             args.carla_args, args.host, args.port, frames, args.seed, args.overwrite, args.index)

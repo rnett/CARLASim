@@ -1,5 +1,8 @@
+import sys
 import warnings
 from enum import Enum
+
+sys.path.append('~/carla/CARLA_0.9.6/carla/dist/carla-0.9.6-py3.5-linux-x86_64.egg')
 
 import carla
 
@@ -70,13 +73,15 @@ class SimConfig:
     def __init__(self, cars: int, pedestrians: int,
                  city: City = City.Town01,
                  rain: Rain = Rain.Clear,
-                 sunset: bool = False):
+                 sunset: bool = False,
+                 index: int = 0):
 
         self.pedestrians = pedestrians
         self.cars = cars
         self.sunset = sunset
         self.rain = rain
         self.city = city
+        self.index = index
         self.weather = Weather(rain, sunset)
 
     @property
@@ -88,7 +93,7 @@ class SimConfig:
 
         return f"{self.city.name.lower()}/" \
                f"{self.rain.name.lower()}/{time}/cars_{self.cars}_peds_" \
-               f"{self.pedestrians}"
+               f"{self.pedestrians}_index_{self.index}"
 
     @staticmethod
     def from_folder_name(name: str):
@@ -127,4 +132,10 @@ class SimConfig:
         folder_name = parts[3].split('_')
         cars = int(folder_name[1])
         peds = int(folder_name[3])
-        return SimConfig(cars, peds, town, rain, sunset)
+
+        if len(folder_name) > 5:
+            index = int(folder_name[5])
+        else:
+            index = 0
+
+        return SimConfig(cars, peds, town, rain, sunset, index)

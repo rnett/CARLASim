@@ -3,6 +3,10 @@ import os
 import random
 import shutil
 
+import sys, glob
+
+sys.path.append('~/carla/CARLA_0.9.6/carla/dist/carla-0.9.6-py3.5-linux-x86_64.egg')
+
 import carla
 import imageio
 
