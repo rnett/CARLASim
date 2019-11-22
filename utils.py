@@ -186,15 +186,15 @@ def stitch_image_tensors(lut, images, depth_multiplier, mask, rgb: bool):
         return pano
 
 
-def save_video(data: np.ndarray, file: Union[Path, str], rgb: bool, samples: bool = True):
-    if isinstance(file, str):
-        file = Path(file)
-    file = file.absolute().resolve()
+def save_video(data: np.ndarray, dir: Union[Path, str], name: str, rgb: bool, samples: bool = True):
+    if isinstance(dir, str):
+        dir = Path(dir)
+    dir = dir.absolute().resolve()
 
     # doesn't work for depth (its 16bit)
     if rgb:
         if samples:
-            imageio.imwrite(file.parent / "sample_rgb.png", data[10])
+            imageio.imwrite(dir / f"{name}_sample.png", data[10])
 
         n, height, width, channels = data.shape
         process = (
@@ -202,7 +202,7 @@ def save_video(data: np.ndarray, file: Union[Path, str], rgb: bool, samples: boo
                 .input('pipe:', format='rawvideo',
                        pix_fmt='rgb24',
                        s='{}x{}'.format(width, height))
-                .output(str(file), pix_fmt='yuv420p', vcodec='libx264',
+                .output(str(dir / f"{name}.mkv"), pix_fmt='yuv420p', vcodec='libx264',
                         preset='veryslow', crf='0')
                 .overwrite_output()
                 .global_args('-loglevel', 'quiet')
@@ -214,7 +214,7 @@ def save_video(data: np.ndarray, file: Union[Path, str], rgb: bool, samples: boo
         process.stdin.close()
         process.wait()
     else:
-        with h5py.File(str(file).replace(".mkv", ".hdf5"), 'w') as f:
+        with h5py.File(str(dir / f"{name}.hdf5"), 'w') as f:
             f.create_dataset("data", data.shape, data.dtype, data,
                              compression='gzip', compression_opts=9)
 
@@ -230,14 +230,14 @@ def save_video(data: np.ndarray, file: Union[Path, str], rgb: bool, samples: boo
             data = data.astype('uint8')
             gc.collect()
 
-            imageio.imwrite(file.parent / "sample_depth.png", data[10])
+            imageio.imwrite(dir / f"{name}_sample.png", data[10])
             n, height, width, channels = data.shape
             process = (
                 ffmpeg
                     .input('pipe:', format='rawvideo',
                            pix_fmt='gray',
                            s='{}x{}'.format(width, height))
-                    .output(str(file), pix_fmt='yuv420p', vcodec='libx264',
+                    .output(str(dir / f"{name}.mkv"), pix_fmt='yuv420p', vcodec='libx264',
                             preset='veryslow', crf='0')
                     .overwrite_output()
                     .global_args('-loglevel', 'quiet')

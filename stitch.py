@@ -150,8 +150,8 @@ def _stich(recording: Recording, lut: Union[str, Path], batch_size,
     save_video(video_frames,
                (
                    recording.spherical.data_dir if spherical else
-                   recording.cylindrical.data_dir)
-               / f"{'rgb' if rgb else 'depth'}.mkv",
+                   recording.cylindrical.data_dir),
+               'rgb' if rgb else 'depth',
                rgb)
     return video_frames
 
@@ -233,31 +233,31 @@ if __name__ == '__main__':
             for side in tqdm(list(Side), desc="Saving sides", unit="side", total=len(list(Side))):
 
                 r.pinhole_data_dir.mkdir(exist_ok=True)
-
-                first_rgb = r.raw[side].frames[0].rgb_data
+                data = r.raw[side]
+                first_rgb = data.frames[0].rgb_data
                 rgb_frames = np.empty(shape=(len(r.raw.frames),) + first_rgb.shape, dtype=first_rgb.dtype)
                 rgb_frames[0] = first_rgb
 
                 for i in tqdm(range(1, len(r.raw.frames)), desc=f"Collecting {side} rgb frames"):
-                    rgb_frames[i] = r.raw[side].frames[i].rgb_data
+                    rgb_frames[i] = data.frames[i].rgb_data
 
-                utils.save_video(rgb_frames, r.pinhole_data_dir / f"{side.name.lower()}_rgb.mkv", True)
+                utils.save_video(rgb_frames, r.pinhole_data_dir, f"{side.name.lower()}_rgb", True)
 
                 del rgb_frames
                 gc.collect()
 
                 # now do depth
 
-                first_depth = r.raw[side].frames[0].depth_data
+                first_depth = data.frames[0].depth_data
 
                 depth_frames = np.empty(shape=(len(r.raw.frames),) + first_depth.shape, dtype=first_depth.dtype)
                 depth_frames[0] = first_depth
 
                 for i in tqdm(range(1, len(r.raw.frames)), desc=f"Collecting {side} depth frames"):
-                    depth_frames[i] = r.raw[side].frames[i].depth_data
+                    depth_frames[i] = data.frames[i].depth_data
 
                 utils.save_video(depth_frames[:, :, :, np.newaxis],
-                                 r.pinhole_data_dir / f"{side.name.lower()}_depth.mkv", False)
+                                 r.pinhole_data_dir, f"{side.name.lower()}_depth", False)
 
                 del depth_frames
                 gc.collect()
