@@ -1,3 +1,4 @@
+import gc
 import os
 import warnings
 from pathlib import Path
@@ -185,7 +186,7 @@ def stitch_image_tensors(lut, images, depth_multiplier, mask, rgb: bool):
         return pano
 
 
-def save_video(data: np.ndarray, file: Union[Path, str], rgb: bool, samples: bool = False):
+def save_video(data: np.ndarray, file: Union[Path, str], rgb: bool, samples: bool = True):
     if isinstance(file, str):
         file = Path(file)
     file = file.absolute().resolve()
@@ -218,7 +219,17 @@ def save_video(data: np.ndarray, file: Union[Path, str], rgb: bool, samples: boo
                              compression='gzip', compression_opts=9)
 
         if samples:
-            data = np.log((data / 256).astype('uint8'))
+            data = data.astype('float32')
+            gc.collect()
+            data = np.divide(data, np.float32(255), out=data)
+            data = np.add(data, np.float32(1), out=data)
+            data = np.log(data, out=data)
+            data = np.subtract(data, np.min(data), out=data)
+            max_scale = np.max(data)
+            data = np.multiply(data, np.float32(255) / max_scale, out=data)
+            data = data.astype('uint8')
+            gc.collect()
+
             imageio.imwrite(file.parent / "sample_depth.png", data[10])
             n, height, width, channels = data.shape
             process = (

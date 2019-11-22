@@ -211,8 +211,10 @@ if __name__ == '__main__':
 
         # TODO detect existing
 
-        for r in tqdm(recordings, desc="Recordings", unit='recording'):
+        pbar = tqdm(recordings, desc="Recordings", unit='recording')
+        for r in pbar:
             r: Recording
+            pbar.set_postfix_str("Recording: " + str(r.base_data_dir))
 
             if not args.no_cylindrical:
                 _stich(r, args.cylindrical_lut, args.batch_size, False, True)
@@ -228,22 +230,34 @@ if __name__ == '__main__':
 
             # save pinhole frames in matching formats
 
-            rgb_frames = {k: np.empty(shape=(len(r.raw.frames),) + v.shape, dtype=v.dtype) for k, v in
-                          r.raw.frames[0].rgb_data.items()}
-            depth_frames = {k: np.empty(shape=(len(r.raw.frames),) + v.shape, dtype=v.dtype) for k, v in
-                            r.raw.frames[0].depth_data.items()}
+            for side in tqdm(list(Side), desc="Saving sides", unit="side", total=len(list(Side))):
 
-            for i, frame in tqdm(enumerate(r.raw.frames), desc="Collecting frames", unit='frame',
-                                 total=len(r.raw.frames)):
-                frame: SplitFrame
-                for k, v in frame.rgb_data.items():
-                    rgb_frames[k][i] = v
-                for k, v in frame.depth_data.items():
-                    depth_frames[k][i] = v
-
-            for side in tqdm(rgb_frames.keys(), desc="Saving sides", unit="side", total=len(list(Side))):
                 r.pinhole_data_dir.mkdir(exist_ok=True)
 
-                utils.save_video(rgb_frames[side], r.pinhole_data_dir / f"{side.name.lower()}_rgb.mkv", True)
-                utils.save_video(depth_frames[side][:, :, :, np.newaxis],
+                first_rgb = r.raw[side].frames[0].rgb_data
+                rgb_frames = np.empty(shape=(len(r.raw.frames),) + first_rgb.shape, dtype=first_rgb.dtype)
+                rgb_frames[0] = first_rgb
+
+                for i in tqdm(range(1, len(r.raw.frames)), desc=f"Collecting {side} rgb frames"):
+                    rgb_frames[i] = r.raw[side].frames[i].rgb_data
+
+                utils.save_video(rgb_frames, r.pinhole_data_dir / f"{side.name.lower()}_rgb.mkv", True)
+
+                del rgb_frames
+                gc.collect()
+
+                # now do depth
+
+                first_depth = r.raw[side].frames[0].depth_data
+
+                depth_frames = np.empty(shape=(len(r.raw.frames),) + first_depth.shape, dtype=first_depth.dtype)
+                depth_frames[0] = first_depth
+
+                for i in tqdm(range(1, len(r.raw.frames)), desc=f"Collecting {side} depth frames"):
+                    depth_frames[i] = r.raw[side].frames[i].depth_data
+
+                utils.save_video(depth_frames[:, :, :, np.newaxis],
                                  r.pinhole_data_dir / f"{side.name.lower()}_depth.mkv", False)
+
+                del depth_frames
+                gc.collect()
