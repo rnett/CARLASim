@@ -186,13 +186,30 @@ def stitch_image_tensors(lut, images, depth_multiplier, mask, rgb: bool):
         return pano
 
 
-def save_video(data: np.ndarray, dir: Union[Path, str], name: str, rgb: bool, samples: bool = True):
+def read_video(file) -> np.ndarray:
+    probe = ffmpeg.probe(str(file))
+    video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
+    width = int(video_stream['width'])
+    height = int(video_stream['height'])
+    # vcodec='libx264', preset='veryslow', crf='0'
+
+    data, _ = ffmpeg \
+        .input(str(file)) \
+        .output('pipe:', format='rawvideo', pix_fmt='rgb24') \
+        .global_args('-loglevel', 'quiet') \
+        .run(capture_stdout=True)
+
+    return np.frombuffer(data, np.uint8).reshape([-1, height, width, 3])
+
+
+def save_data(data: np.ndarray, dir: Union[Path, str], name: str, rgb: bool, samples: bool = True):
     if isinstance(dir, str):
         dir = Path(dir)
     dir = dir.absolute().resolve()
 
     # doesn't work for depth (its 16bit)
     if rgb:
+
         if samples:
             imageio.imwrite(dir / f"{name}_sample.png", data[10])
 
@@ -202,12 +219,15 @@ def save_video(data: np.ndarray, dir: Union[Path, str], name: str, rgb: bool, sa
                 .input('pipe:', format='rawvideo',
                        pix_fmt='rgb24',
                        s='{}x{}'.format(width, height))
-                .output(str(dir / f"{name}.mkv"), pix_fmt='yuv420p', vcodec='libx264',
-                        preset='veryslow', crf='0')
+                .output(str(dir / f"{name}.mkv"),) # pix_fmt='yuv420p', # , vcodec='libx264'
                 .overwrite_output()
-                .global_args('-loglevel', 'quiet')
-                .run_async(pipe_stdin=True)
+                .global_args('-loglevel', 'quiet', "-c:v", "libx264", "-preset", "ultrafast", "-crf", "0")
         )
+
+        print("\nProc:", " ".join(process.compile()))
+
+        process = process.run_async(pipe_stdin=True)
+
         for frame in data:
             process.stdin.write(frame.tobytes())
 
@@ -241,8 +261,8 @@ def save_video(data: np.ndarray, dir: Union[Path, str], name: str, rgb: bool, sa
                             preset='veryslow', crf='0')
                     .overwrite_output()
                     .global_args('-loglevel', 'quiet')
-                    .run_async(pipe_stdin=True)
             )
+
             for frame in data:
                 process.stdin.write(frame.tobytes())
 

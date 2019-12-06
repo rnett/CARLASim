@@ -2,9 +2,11 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, Iterator, List, Union
 
+import h5py
 import imageio
 import numpy as np
 
+import utils
 from config import SimConfig
 from sides import Side
 
@@ -44,7 +46,7 @@ class SplitFrame:
                            self.depth_files[side])
 
 
-class RecordingData(ABC):
+class RecordingData:
     def __init__(self, data_dir: Path):
         if not data_dir.exists():
             data_dir.mkdir()
@@ -52,23 +54,6 @@ class RecordingData(ABC):
         self.data_dir = data_dir
         self.files = [f for f in data_dir.iterdir() if f.is_file()]
         super().__init__()
-
-    @property
-    @abstractmethod
-    def frames(self) -> List[Union[SingleFrame, SplitFrame]]:
-        pass
-
-    @property
-    def num_frames(self) -> int:
-        return len(self.frames)
-
-    def __len__(self):
-        return self.num_frames
-
-    @abstractmethod
-    def __iter__(self) -> Iterator[Union[SingleFrame, SplitFrame]]:
-        while False:
-            yield None
 
 
 class RawRecordingData(RecordingData):
@@ -142,14 +127,14 @@ class RawRecordingData(RecordingData):
         return iter(self.frames)
 
     def __getitem__(self, item: Side):
-        return SingleSideRecordingData(item, self)
+        return SingleSideRawRecordingData(item, self)
 
     def file_for(self, side: Side, frame: int, depth: bool = False) -> Path:
         return self.data_dir / f"{side.name.lower()}_{frame}_" \
                                f"{'depth' if depth else 'rgb'}.png"
 
 
-class SingleSideRecordingData(RecordingData):
+class SingleSideRawRecordingData(RecordingData):
 
     def __init__(self, side: Side, all_sides: RawRecordingData):
         super().__init__(all_sides.data_dir)
@@ -163,50 +148,52 @@ class SingleSideRecordingData(RecordingData):
         return iter(self.frames)
 
 
-class SingleRecordingData(RecordingData):
-    def __init__(self, data_dir: Path):
+class StitchedRecordingData(RecordingData):
+    def __init__(self, data_dir: Path, prefix: str = ""):
         super().__init__(data_dir)
-        self._frames = None
+        self.prefix = prefix
 
     @property
-    def frames(self) -> List[SingleFrame]:
-        if self._frames is None:
-            rgb = []
-            depth = []
+    def rgb_data(self) -> np.ndarray:
+        return utils.read_video(self.data_dir / f"{self.prefix}rgb.mkv")
 
-            for f in self.files:
-                if f.name.endswith('rgb.png'):
-                    rgb.append((int(f.name.split('_')[0]), f))
-                else:
-                    depth.append((int(f.name.split('_')[0]), f))
+    @property
+    def depth_data(self) -> np.ndarray:
+        with h5py.File(str(self.data_dir / f"{self.prefix}depth.hdf5"), 'r') as f:
+            data = f["data"][:]
+        return data
 
-            rgb.sort(key=lambda x: x[0])
-            depth.sort(key=lambda x: x[0])
 
-            rgb_frames = [x[0] for x in rgb]
-            depth_frames = [x[0] for x in depth]
+class PinholeStitchedRecordingData(RecordingData):
+    def __init__(self, data_dir: Path):
+        super().__init__(data_dir)
 
-            if rgb_frames != depth_frames:
-                missing_depth = [i for i in rgb_frames if i not in depth_frames]
-                missing_rgb = [i for i in depth_frames if i not in rgb_frames]
-                raise ValueError(
-                    f"Mismatched frame indices: missing depth for frames "
-                    f"{missing_depth}, missing rbg for frames {missing_rgb}")
+    def __getitem__(self, side: Side) -> StitchedRecordingData:
+        return StitchedRecordingData(self.data_dir, side.name.lower() + "_")
 
-            rgb = [x[1] for x in rgb]
-            depth = [x[1] for x in depth]
+    @property
+    def back(self) -> StitchedRecordingData:
+        return self[Side.Back]
 
-            self._frames = [SingleFrame(i, rgb, depth) for i, (rgb, depth) in
-                            enumerate(zip(rgb, depth))]
+    @property
+    def front(self) -> StitchedRecordingData:
+        return self[Side.Front]
 
-        return self._frames
+    @property
+    def left(self) -> StitchedRecordingData:
+        return self[Side.Left]
 
-    def __iter__(self) -> Iterator[SingleFrame]:
-        return iter(self.frames)
+    @property
+    def right(self) -> StitchedRecordingData:
+        return self[Side.Right]
 
-    def file_for(self, frame: int, depth: bool = False) -> Path:
-        return self.data_dir / f"{frame}_" \
-                               f"{'depth' if depth else 'rgb'}.png"
+    @property
+    def top(self) -> StitchedRecordingData:
+        return self[Side.Top]
+
+    @property
+    def bottom(self) -> StitchedRecordingData:
+        return self[Side.Bottom]
 
 
 class Recording:
@@ -243,23 +230,23 @@ class Recording:
         return self._raw
 
     @property
-    def pinhole(self) -> RawRecordingData:
+    def pinhole(self) -> PinholeStitchedRecordingData:
         if self._pinhole is None:
-            self._pinhole = RawRecordingData(self.pinhole_data_dir)
+            self._pinhole = PinholeStitchedRecordingData(self.pinhole_data_dir)
 
         return self._pinhole
 
     @property
-    def spherical(self) -> SingleRecordingData:
+    def spherical(self) -> StitchedRecordingData:
         if self._spherical is None:
-            self._spherical = SingleRecordingData(self.spherical_data_dir)
+            self._spherical = StitchedRecordingData(self.spherical_data_dir)
 
         return self._spherical
 
     @property
-    def cylindrical(self) -> SingleRecordingData:
+    def cylindrical(self) -> StitchedRecordingData:
         if self._cylindrical is None:
-            self._cylindrical = SingleRecordingData(self.cylindrical_data_dir)
+            self._cylindrical = StitchedRecordingData(self.cylindrical_data_dir)
 
         return self._cylindrical
 

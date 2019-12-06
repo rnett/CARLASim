@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="stitch" type="PythonConfigurationType" factoryName="Python">
+  <configuration default="false" name="make_luts" type="PythonConfigurationType" factoryName="Python">
     <module name="CARLASim" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
@@ -12,8 +12,8 @@
     <option name="ADD_CONTENT_ROOTS" value="true" />
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/stitch.py" />
-    <option name="PARAMETERS" value="sides_to_cylindrical.lut sides_to_spherical.lut -s E:\carla\town01\clear\noon\cars_50_peds_200_index_1 -b 10" />
+    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/make_luts.py" />
+    <option name="PARAMETERS" value="-c sides_to_cylindrical.lut -s sides_to_spherical.lut" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />

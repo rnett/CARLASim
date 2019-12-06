@@ -7,9 +7,7 @@ from tqdm import tqdm
 import carla_sim
 
 
-def make_spherical_lut(lut_file):
-    output_width = 1520
-    output_height = 760
+def make_spherical_lut(lut_file, output_width, output_height):
 
     lutx = np.zeros((output_height, output_width))
     luty = np.zeros((output_height, output_width))
@@ -106,10 +104,7 @@ def make_spherical_lut(lut_file):
     np.save(lut_file, lut)
 
 
-def make_cylindrical_lut(lut_file):
-    output_width = 1520
-    output_height = 760
-
+def make_cylindrical_lut(lut_file, output_width, output_height):
     bottom = -0.5
     top = 0.5
 
@@ -178,12 +173,22 @@ if __name__ == '__main__':
     parser.add_argument("--spherical_lut", "-s",
                         help="Spherical lookup table file.")
 
+    parser.add_argument("--output_width", "-ow",
+                        type=int,
+                        default=1920,
+                        help="Output width (in pixels)")
+
+    parser.add_argument("--output_height", "-oh",
+                        type=int,
+                        default=1080,
+                        help="Output height (in pixels)")
+
     args = parser.parse_args()
 
     if 'cylindrical_lut' in args:
         print("Making cylindrical lookup table...")
-        make_cylindrical_lut(open(args.cylindrical_lut, 'wb+'))
+        make_cylindrical_lut(open(args.cylindrical_lut, 'wb+'), args.output_width, args.output_height)
 
     if 'spherical_lut' in args:
         print("Making spherical lookup table...")
-        make_spherical_lut(open(args.spherical_lut, 'wb+'))
+        make_spherical_lut(open(args.spherical_lut, 'wb+'), args.output_width, args.output_height)

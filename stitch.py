@@ -6,10 +6,11 @@ import warnings
 from pathlib import Path
 from typing import Union
 
+import h5py
 import numpy as np
 
 import utils
-from utils import save_video, stitch_image_tensors
+from utils import save_data, stitch_image_tensors
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -100,14 +101,15 @@ def _stich(recording: Recording, lut: Union[str, Path], batch_size,
         mininterval=0)
 
     frame_num = 0
+    print("LUT Shape:", lut.shape)
     if rgb:
-        video_frames = np.empty(shape=(len(frames), 760, 1520, 3),
+        video_frames = np.empty(shape=(len(frames), lut.shape[0], lut.shape[1], 3),
                                 dtype=im_type)
     else:
-        video_frames = np.empty(shape=(len(frames), 760, 1520), dtype=im_type)
+        video_frames = np.empty(shape=(len(frames), lut.shape[0], lut.shape[1]), dtype=im_type)
 
     if not spherical:
-        size = im_shape[1] // 4
+        size = lut.shape[0] // 4
         t = np.pi / 4
         thetas = np.linspace(-t, t, size)
         all_thetas = np.concatenate((thetas[size // 2:],
@@ -134,8 +136,7 @@ def _stich(recording: Recording, lut: Union[str, Path], batch_size,
                                  batch,
                                  depth_multiplier,
                                  mask,
-                                 rgb)).astype(
-            im_type)
+                                 rgb)).astype(im_type)
 
         # if mask is not None:
         #     batch_frames[batch_frames == 0] = -1
@@ -147,12 +148,38 @@ def _stich(recording: Recording, lut: Union[str, Path], batch_size,
     if not rgb:
         video_frames = video_frames[:, :, :, np.newaxis]
 
-    save_video(video_frames,
-               (
+    save_data(video_frames,
+              (
                    recording.spherical.data_dir if spherical else
                    recording.cylindrical.data_dir),
                'rgb' if rgb else 'depth',
-               rgb)
+              rgb)
+
+    # if rgb:
+    #
+    #     video_frames = video_frames[:10]
+    #     gc.collect()
+    #     loaded = recording.cylindrical.rgb_data[:10]
+    #     gc.collect()
+    #
+    #     # with h5py.File("test", 'w') as f:
+    #     #     f.create_dataset("data", data=video_frames, compression='gzip', compression_opts=9)
+    #     #
+    #     # with h5py.File("test", 'r') as f:
+    #     #     h5_data = f["data"][:]
+    #
+    #     print("Allclose:", np.allclose(video_frames, loaded, rtol=0, atol=5))
+    #     print("Equal:", video_frames == loaded, " - ", np.sum(video_frames == loaded) / np.product(loaded.shape) )
+    #     print("Average Dif: ", np.mean(np.abs(video_frames - loaded)))
+    #
+    #     # print("-----------------------------")
+    #     #
+    #     # print("Allclose:", np.allclose(video_frames, h5_data, rtol=0, atol=5))
+    #     # print("Equal:", np.sum(video_frames == h5_data) / np.product(h5_data.shape) )
+    #     # print("Average Dif: ", np.mean(np.abs(video_frames - h5_data)))
+    #
+    #     print()
+    # quit(0)
     return video_frames
 
 
@@ -241,7 +268,7 @@ if __name__ == '__main__':
                 for i in tqdm(range(1, len(r.raw.frames)), desc=f"Collecting {side} rgb frames"):
                     rgb_frames[i] = data.frames[i].rgb_data
 
-                utils.save_video(rgb_frames, r.pinhole_data_dir, f"{side.name.lower()}_rgb", True)
+                utils.save_data(rgb_frames, r.pinhole_data_dir, f"{side.name.lower()}_rgb", True)
 
                 del rgb_frames
                 gc.collect()
@@ -256,8 +283,8 @@ if __name__ == '__main__':
                 for i in tqdm(range(1, len(r.raw.frames)), desc=f"Collecting {side} depth frames"):
                     depth_frames[i] = data.frames[i].depth_data
 
-                utils.save_video(depth_frames[:, :, :, np.newaxis],
-                                 r.pinhole_data_dir, f"{side.name.lower()}_depth", False)
+                utils.save_data(depth_frames[:, :, :, np.newaxis],
+                                r.pinhole_data_dir, f"{side.name.lower()}_depth", False)
 
                 del depth_frames
                 gc.collect()
