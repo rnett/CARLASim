@@ -15,8 +15,8 @@ from config import SimConfig
 from recordings import Recording
 from sides import Side, SideMap
 
-IMAGE_WIDTH = 760
-IMAGE_HEIGHT = 760
+IMAGE_WIDTH = 768
+IMAGE_HEIGHT = 768
 FOV = 100
 
 DEPTH_MULTIPLIER = 10000.

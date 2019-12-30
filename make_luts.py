@@ -175,12 +175,12 @@ if __name__ == '__main__':
 
     parser.add_argument("--output_width", "-ow",
                         type=int,
-                        default=1920,
+                        default=2048,
                         help="Output width (in pixels)")
 
     parser.add_argument("--output_height", "-oh",
                         type=int,
-                        default=1080,
+                        default=1024,
                         help="Output height (in pixels)")
 
     args = parser.parse_args()

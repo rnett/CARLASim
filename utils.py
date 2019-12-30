@@ -261,6 +261,8 @@ def save_data(data: np.ndarray, dir: Union[Path, str], name: str, rgb: bool, sam
                             preset='veryslow', crf='0')
                     .overwrite_output()
                     .global_args('-loglevel', 'quiet')
+                    .run_async(pipe_stdin=True)
+
             )
 
             for frame in data:
