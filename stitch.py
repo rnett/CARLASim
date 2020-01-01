@@ -257,10 +257,10 @@ if __name__ == '__main__':
 
                 if not args.no_spherical:
                     group = file.create_group("spherical")
-                    group.create_dataset("rgb", data=_stich(r, args.cylindrical_lut, args.batch_size, True, True),
+                    group.create_dataset("rgb", data=_stich(r, args.spherical_lut, args.batch_size, True, True),
                                          compression='gzip', compression_opts=9)
                     gc.collect()
-                    group.create_dataset("depth", data=_stich(r, args.cylindrical_lut, args.batch_size, True, False),
+                    group.create_dataset("depth", data=_stich(r, args.spherical_lut, args.batch_size, True, False),
                                          compression='gzip', compression_opts=9)
                     gc.collect()
 

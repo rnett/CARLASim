@@ -53,7 +53,7 @@ def simulate(city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, s
 
     if carla != "":
         server = launch_server(carla, carla_args)
-        time.sleep(5)
+        time.sleep(10)
     else:
         server = None
 
