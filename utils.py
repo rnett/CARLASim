@@ -202,6 +202,27 @@ def read_video(file) -> np.ndarray:
     return np.frombuffer(data, np.uint8).reshape([-1, height, width, 3])
 
 
+def save_examples(file: Path, data: np.array):
+    n, height, width, channels = data.shape
+    process = (
+        ffmpeg
+            .input('pipe:', format='rawvideo',
+                   pix_fmt='rgb24',
+                   s='{}x{}'.format(width, height))
+            .output(str(file), pix_fmt='yuv420p', vcodec='libx264')
+            .overwrite_output()
+            .global_args('-loglevel', 'quiet', "-preset", "ultrafast", "-crf", "12")
+    )
+
+    process = process.run_async(pipe_stdin=True)
+
+    for frame in data:
+        process.stdin.write(frame.tobytes())
+
+    process.stdin.close()
+    process.wait()
+
+
 def save_data(data: np.ndarray, dir: Union[Path, str], name: str, rgb: bool, samples: bool = True):
     if isinstance(dir, str):
         dir = Path(dir)
@@ -219,7 +240,7 @@ def save_data(data: np.ndarray, dir: Union[Path, str], name: str, rgb: bool, sam
                 .input('pipe:', format='rawvideo',
                        pix_fmt='rgb24',
                        s='{}x{}'.format(width, height))
-                .output(str(dir / f"{name}.mkv"),) # pix_fmt='yuv420p', # , vcodec='libx264'
+                .output(str(dir / f"{name}.mkv"), )  # pix_fmt='yuv420p', # , vcodec='libx264'
                 .overwrite_output()
                 .global_args('-loglevel', 'quiet', "-c:v", "libx264", "-preset", "ultrafast", "-crf", "0")
         )

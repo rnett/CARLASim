@@ -24,7 +24,7 @@ for city in list(City):
 
             sims.append((city, rain, True, np.random.randint(0, 100000), 0))
 
-for sim in tqdm(sims, desc="Simulations:", unit='sim'):
+for sim in tqdm(sims, desc="Simulations", unit='sim'):
     try:
         simulate(sim[0], 50, 200, sim[1], sim[2], seed=sim[3], overwrite=False, index=sim[4])
     except FileExistsError:

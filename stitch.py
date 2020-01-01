@@ -180,7 +180,6 @@ def _stich(recording: Recording, lut: Union[str, Path], batch_size,
     #
     #     print()
     # quit(0)
-    print(video_frames.dtype)
     return video_frames
 
 
@@ -248,20 +247,25 @@ if __name__ == '__main__':
 
                 if not args.no_cylindrical:
                     group = file.create_group("cylindrical")
-                    group.create_dataset("rgb", data=_stich(r, args.cylindrical_lut, args.batch_size, False, True),
-                                         compression='gzip', compression_opts=9)
+                    rgb_data = _stich(r, args.cylindrical_lut, args.batch_size, False, True)
+                    gc.collect()
+                    utils.save_examples(r.base_data_dir / "cylindrical.mkv", rgb_data)
+                    group.create_dataset("rgb", data=rgb_data,
+                                         compression='gzip', compression_opts=5)
                     gc.collect()
                     group.create_dataset("depth", data=_stich(r, args.cylindrical_lut, args.batch_size, False, False),
-                                         compression='gzip', compression_opts=9)
+                                         compression='gzip', compression_opts=5)
                     gc.collect()
 
                 if not args.no_spherical:
                     group = file.create_group("spherical")
-                    group.create_dataset("rgb", data=_stich(r, args.spherical_lut, args.batch_size, True, True),
-                                         compression='gzip', compression_opts=9)
+                    rgb_data = _stich(r, args.spherical_lut, args.batch_size, True, True)
+                    utils.save_examples(r.base_data_dir / "spherical.mkv", rgb_data)
+                    group.create_dataset("rgb", data=rgb_data,
+                                         compression='gzip', compression_opts=5)
                     gc.collect()
                     group.create_dataset("depth", data=_stich(r, args.spherical_lut, args.batch_size, True, False),
-                                         compression='gzip', compression_opts=9)
+                                         compression='gzip', compression_opts=5)
                     gc.collect()
 
                 # save pinhole frames in matching formats
@@ -269,8 +273,9 @@ if __name__ == '__main__':
                 group = file.create_group("pinhole")
                 for side in tqdm(list(Side), desc="Saving sides", unit="side", total=len(list(Side))):
                     side_group = group.create_group(side.name.lower())
-                    r.pinhole_data_dir.mkdir(exist_ok=True)
+
                     data = r.raw[side]
+
                     first_rgb = data.frames[0].rgb_data
                     rgb_frames = np.empty(shape=(len(r.raw.frames),) + first_rgb.shape, dtype=first_rgb.dtype)
                     rgb_frames[0] = first_rgb
@@ -278,8 +283,11 @@ if __name__ == '__main__':
                     for i in tqdm(range(1, len(r.raw.frames)), desc=f"Collecting {side} rgb frames"):
                         rgb_frames[i] = data.frames[i].rgb_data
 
+                    if side is Side.Front:
+                        utils.save_examples(r.base_data_dir / "front.mkv", rgb_frames)
+
                     side_group.create_dataset("rgb", data=rgb_frames,
-                                              compression='gzip', compression_opts=9)
+                                              compression='gzip', compression_opts=5)
 
                     del rgb_frames
                     gc.collect()
@@ -295,7 +303,7 @@ if __name__ == '__main__':
                         depth_frames[i] = data.frames[i].depth_data
                     print(depth_frames.dtype)
                     side_group.create_dataset("depth", data=depth_frames[:, :, :, np.newaxis],
-                                              compression='gzip', compression_opts=9)
+                                              compression='gzip', compression_opts=5)
 
                     del depth_frames
                     gc.collect()
