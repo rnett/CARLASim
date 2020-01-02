@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterator, List, Union
 
@@ -196,6 +197,49 @@ class PinholeStitchedRecordingData(RecordingData):
         return self[Side.Bottom]
 
 
+@dataclass
+class SingleRecordingDataset:
+    _group: h5py.Group
+
+    @property
+    def rgb(self) -> h5py.Dataset:
+        return self._group['rgb']
+
+    @property
+    def depth(self) -> h5py.Dataset:
+        return self._group['depth']
+
+
+class SplitRecordingDataset:
+    def __init__(self, group: h5py.Group):
+        self._group = group
+
+        self.top: SingleRecordingDataset = self[Side.Top]
+        self.bottom: SingleRecordingDataset = self[Side.Bottom]
+        self.left: SingleRecordingDataset = self[Side.Left]
+        self.right: SingleRecordingDataset = self[Side.Right]
+        self.front: SingleRecordingDataset = self[Side.Front]
+        self.back: SingleRecordingDataset = self[Side.Back]
+
+    def __getitem__(self, side: Side) -> SingleRecordingDataset:
+        return SingleRecordingDataset(self._group[side.name.lower()])
+
+
+class RecordingDataset:
+    def __init__(self, file: h5py.File):
+        self._file = file
+
+        self.spherical: SingleRecordingDataset = SingleRecordingDataset(self._file["spherical"])
+        self.cylindrical: SingleRecordingDataset = SingleRecordingDataset(self._file["spherical"])
+        self.pinhole: SplitRecordingDataset = SplitRecordingDataset(self._file["pinhole"])
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._file.close()
+
+
 class Recording:
     def __init__(self, base_dir: Union[str, Path], config: SimConfig):
         self.config = config
@@ -207,14 +251,15 @@ class Recording:
 
         self.base_data_dir = self.base_dir / config.folder_name
         self.raw_data_dir = self.base_data_dir / "raw"
-        self.pinhole_data_dir = self.base_data_dir / "pinhole"
-        self.spherical_data_dir = self.base_data_dir / "spherical"
-        self.cylindrical_data_dir = self.base_data_dir / "cylindrical"
 
         self._raw = None
-        self._pinhole = None
-        self._spherical = None
-        self._cylindrical = None
+
+        self.data_file = self.base_data_dir / "data.hdf5"
+        self._open_data = None
+
+    @property
+    def data(self) -> RecordingDataset:
+        return RecordingDataset(h5py.File(self.data_file, "r"))
 
     def __repr__(self):
         return repr(self.base_data_dir)
@@ -228,27 +273,6 @@ class Recording:
             self._raw = RawRecordingData(self.raw_data_dir)
 
         return self._raw
-
-    @property
-    def pinhole(self) -> PinholeStitchedRecordingData:
-        if self._pinhole is None:
-            self._pinhole = PinholeStitchedRecordingData(self.pinhole_data_dir)
-
-        return self._pinhole
-
-    @property
-    def spherical(self) -> StitchedRecordingData:
-        if self._spherical is None:
-            self._spherical = StitchedRecordingData(self.spherical_data_dir)
-
-        return self._spherical
-
-    @property
-    def cylindrical(self) -> StitchedRecordingData:
-        if self._cylindrical is None:
-            self._cylindrical = StitchedRecordingData(self.cylindrical_data_dir)
-
-        return self._cylindrical
 
     @staticmethod
     def all_in_dir(base_dir: Union[Path, str], fail: bool = False) -> List:
