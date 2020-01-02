@@ -13,7 +13,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/stitch.py" />
-    <option name="PARAMETERS" value="sides_to_cylindrical.lut sides_to_spherical.lut -s /data/carla/town01/clear/noon/cars_50_peds_200_index_0 -b 5" />
+    <option name="PARAMETERS" value="sides_to_cylindrical.lut sides_to_spherical.lut -s E:/carla/town01/clear/noon/cars_50_peds_200_index_0 -b 20 -o" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />

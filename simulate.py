@@ -46,6 +46,8 @@ def simulate(city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, s
         if overwrite:
             shutil.rmtree(output_folder)
         else:
+            if len(list((output_folder / "raw").iterdir())) != 6 * frames:
+                raise ValueError(f"Output exists in {output_folder} but has the wrong number of frames")
             print(
                 f"Output folder {output_folder} already exists and "
                 f"'overwrite' is false.")

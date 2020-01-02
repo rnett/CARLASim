@@ -203,6 +203,7 @@ def read_video(file) -> np.ndarray:
 
 
 def save_examples(file: Path, data: np.array):
+    imageio.imwrite(str(file.with_suffix(".png")), data[10])
     n, height, width, channels = data.shape
     process = (
         ffmpeg
