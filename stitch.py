@@ -284,7 +284,8 @@ def _process(source: StitchSource, create_in):
     dtype = source.dtype
 
     dataset = create_in.create_dataset(source.dataset_name, shape=shape, dtype=dtype,
-                                       compression='gzip', compression_opts=9,
+                                       compression='gzip', compression_opts=4,
+                                       # compression='lzf',
                                        shuffle=True,
                                        fletcher32=True)
 
@@ -361,7 +362,10 @@ Stats:
     Gzip level 5: 2092s, 8.17 GB
     No compression: 1345.46s, 36 GB
     Gzip level 2: 1524.21s, 8.9 GB
-    Gzip level 9: 
+    Gzip level 3: 1724.21s, 8.4 GB
+    Gzip level 4: 1796.92s, 8.4 GB      ** best so far
+    Gzip level 9: 9658.69s, 7.67 GB
+    LZF: 1261.98s, 13.5 GB
 """
 
 
