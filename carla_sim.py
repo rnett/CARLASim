@@ -3,7 +3,8 @@ import os
 import random
 import shutil
 
-import sys, glob
+import sys
+from pathlib import Path
 
 sys.path.append('~/carla/CARLA_0.9.6/carla/dist/carla-0.9.6-py3.5-linux-x86_64.egg')
 
@@ -54,6 +55,11 @@ class CarlaSim:
                     f"Output folder {self.output_folder} already exists and "
                     f"'overwrite' is false.")
                 raise FileExistsError
+        else:
+            Path(self.output_folder).mkdir(exist_ok=True, parents=True)
+
+        with open(self.output_folder + "seed.txt", 'x') as seed_file:
+            seed_file.write(str(seed))
 
         try:
             # First of all, we need to create the client that will send the
