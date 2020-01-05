@@ -5,7 +5,7 @@ import numpy as np
 from tqdm import tqdm
 
 from config import City, Rain
-from simulate import simulate
+from simulate import simulate, FramesMismatchError
 
 sims = []
 
@@ -47,6 +47,9 @@ for sim in tqdm(sims, desc="Simulations", unit='sim'):
             time.sleep(10)
             break
         except FileExistsError:
+            break
             pass
+        except FramesMismatchError as fme:
+            raise fme
         except Exception as e:
             continue

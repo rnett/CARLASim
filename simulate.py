@@ -24,6 +24,10 @@ from carla_sim import CarlaSim
 from config import Rain, SimConfig, City
 
 
+class FramesMismatchError(Exception):
+    pass
+
+
 def launch_server(carla_script: str, extra_args: List[str]):
     args = [carla_script]
     args.extend(extra_args)
@@ -36,11 +40,10 @@ def simulate(city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, s
              carla: str = "/home/rnett/carla/CARLA_0.9.6/CarlaUE4.sh", carla_args: List[str] = [""],
              host: str = 'localhost', port: str = '2000', frames: int = 1000, seed: int = 123,
              overwrite: bool = True, index: int = 0):
-
     config = SimConfig(cars, pedestrians, city, rain,
-                      sunset, index)
+                       sunset, index)
 
-    output_folder = Path(output_dir) /  config.folder_name
+    output_folder = Path(output_dir) / config.folder_name
 
     if output_folder.exists():
         if overwrite:
@@ -48,7 +51,9 @@ def simulate(city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, s
         else:
             num_frames = len(list((output_folder / "raw").iterdir()))
             if num_frames != 2 * 6 * frames:
-                raise ValueError(f"Output exists in {output_folder} but has the wrong number of frames (has {num_frames}, needs {6 * frames})")
+                raise FramesMismatchError(
+                    f"Output exists in {output_folder} but has the wrong number of frames (has {num_frames}, "
+                    f"needs {6 * frames})")
             print(
                 f"Output folder {output_folder} already exists and "
                 f"'overwrite' is false.")
@@ -171,7 +176,6 @@ if __name__ == '__main__':
                         default=0,
                         type=int,
                         help="Index, used to differentiate multiple runs with the same settings.")
-
 
     parser.add_argument("--no_overwrite",
                         dest='overwrite',
