@@ -4,7 +4,7 @@ import carla_sim
 from recordings import Recording, SingleRecordingDataset
 import numpy as np
 
-recording = Recording.from_dir("/data/carla/town01/clear/noon/cars_50_peds_200_index_0")
+recording = Recording.from_dir("E:/carla/town01/clear/noon/cars_50_peds_200_index_0")
 
 def header(num_points):
     return f"""ply

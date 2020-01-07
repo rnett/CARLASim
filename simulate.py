@@ -49,15 +49,19 @@ def simulate(city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, s
         if overwrite:
             shutil.rmtree(output_folder)
         else:
-            num_frames = len(list((output_folder / "raw").iterdir()))
-            if num_frames != 2 * 6 * frames:
-                raise FramesMismatchError(
-                    f"Output exists in {output_folder} but has the wrong number of frames (has {num_frames}, "
-                    f"needs {6 * frames})")
-            print(
-                f"Output folder {output_folder} already exists and "
-                f"'overwrite' is false.")
-            raise FileExistsError
+            if (output_folder / "raw").exists():
+                num_frames = len(list((output_folder / "raw").iterdir()))
+
+                if num_frames != 2 * 6 * frames:
+                    raise FramesMismatchError(
+                        f"Output exists in {output_folder} but has the wrong number of frames (has {num_frames}, "
+                        f"needs {6 * frames})")
+                print(
+                    f"Output folder {output_folder} already exists and "
+                    f"'overwrite' is false.")
+                raise FileExistsError
+            else:
+                shutil.rmtree(output_folder)
 
     if carla != "":
         server = launch_server(carla, carla_args)

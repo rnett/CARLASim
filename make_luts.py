@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+from pathlib import Path
 
 import numpy as np
 from tqdm import tqdm
@@ -8,7 +9,6 @@ import carla_sim
 
 
 def make_spherical_lut(lut_file, output_width, output_height):
-
     lutx = np.zeros((output_height, output_width))
     luty = np.zeros((output_height, output_width))
     depth_multiplier = np.zeros((output_height, output_width))
@@ -103,6 +103,36 @@ def make_spherical_lut(lut_file, output_width, output_height):
          np.expand_dims(depth_multiplier, axis=-1)], axis=-1)
     np.save(lut_file, lut)
 
+    # solve for theta intrinsics
+    x0 = 0
+    x1 = len(thetas) - 1
+    theta0 = thetas[0]
+    theta1 = thetas[-1]
+    c_theta = (theta0 * x1 - theta1 * x0) / (theta0 - theta1)
+    f_theta = (x0 - x1) / (theta0 - theta1)
+
+    # solve for phi intrinsics
+    y0 = 0
+    y1 = len(phis) - 1
+    phi0 = phis[0]
+    phi1 = phis[-1]
+    c_phi = (phi0 * y1 - phi1 * y0) / (phi0 - phi1)
+    f_phi = (y0 - y1) / (phi0 - phi1)
+
+    intrinsics_file = Path(lut_file.name).with_name("spherical_intrinsics.txt")
+
+    # save intrinsics to file
+    with intrinsics_file.open('w') as f:
+        f.write('%.15f %.15f %.15f %.15f' % (f_theta, c_theta, f_phi, c_phi))
+
+
+def load_spherical_intrinsics(intrinsics_file: Path = Path("./spherical_intrinsics.txt")):
+    """
+    :return: (f_theta, c_theta, f_phi, c_phi)
+    """
+    txt = intrinsics_file.open("r").read()
+    return (np.float32(t) for t in txt)
+
 
 def make_cylindrical_lut(lut_file, output_width, output_height):
     bottom = -0.5
@@ -161,6 +191,36 @@ def make_cylindrical_lut(lut_file, output_width, output_height):
     lut = np.concatenate(
         [np.expand_dims(lutx, axis=-1), np.expand_dims(luty, axis=-1)], axis=-1)
     np.save(lut_file, lut)
+
+    # solve for theta intrinsics
+    x0 = 0
+    x1 = len(thetas) - 1
+    theta0 = thetas[0]
+    theta1 = thetas[-1]
+    c_theta = (theta0 * x1 - theta1 * x0) / (theta0 - theta1)
+    f_theta = (x0 - x1) / (theta0 - theta1)
+
+    # solve for Z intrinsics
+    y0 = 0
+    y1 = len(heights) - 1
+    Z0 = heights[0]
+    Z1 = heights[-1]
+    c_Z = (Z0 * y1 - Z1 * y0) / (Z0 - Z1)
+    f_Z = (y0 - y1) / (Z0 - Z1)
+
+    intrinsics_file = Path(lut_file.name).with_name("cylindrical_intrinsics.txt")
+
+    # save intrinsics to file
+    with intrinsics_file.open('w') as f:
+        f.write('%.15f %.15f %.15f %.15f' % (f_theta, c_theta, f_Z, c_Z))
+
+
+def load_cylindrical_intrinsics(intrinsics_file: Path = Path("./cylindrical_intrinsics.txt")):
+    """
+    :return: (f_theta, c_theta, f_Z, c_Z)
+    """
+    txt = intrinsics_file.open("r").read()
+    return (np.float32(t) for t in txt)
 
 
 if __name__ == '__main__':

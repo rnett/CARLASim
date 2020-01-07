@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import time
+import traceback
 
 import numpy as np
 from tqdm import tqdm
@@ -52,4 +53,6 @@ for sim in tqdm(sims, desc="Simulations", unit='sim'):
         except FramesMismatchError as fme:
             raise fme
         except Exception as e:
+            print(e)
+            traceback.print_exc()
             continue
