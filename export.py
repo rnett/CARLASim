@@ -1,6 +1,3 @@
-import imageio
-
-import carla_sim
 from recordings import Recording, SingleRecordingDataset
 import numpy as np
 

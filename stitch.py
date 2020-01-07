@@ -13,6 +13,7 @@ import imageio
 import numpy as np
 
 import utils
+from carla_constants import *
 from utils import save_data, stitch_image_tensors
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -26,7 +27,6 @@ tf.get_logger().setLevel('ERROR')
 
 from tqdm import tqdm
 
-import carla_sim
 from recordings import Recording, SplitFrame
 from sides import Side
 
@@ -173,7 +173,7 @@ class SideStitchSource(StitchSource):
 
     @property
     def shape(self) -> Tuple[int, int, int, int]:
-        return self.num_frames, carla_sim.IMAGE_WIDTH, carla_sim.IMAGE_HEIGHT, 3 if self.rgb else 1
+        return self.num_frames, IMAGE_WIDTH, IMAGE_HEIGHT, 3 if self.rgb else 1
 
     @property
     def pbar_desc(self) -> str:
@@ -225,9 +225,9 @@ def _batch_frames(frames, batch_size, im_shape, im_dtype, spherical: bool,
 def _stich(source: PanoramaStitchSource):
     im_type = source.dtype
     if source.rgb:
-        im_shape = (carla_sim.IMAGE_WIDTH, carla_sim.IMAGE_HEIGHT, 3)
+        im_shape = (IMAGE_WIDTH, IMAGE_HEIGHT, 3)
     else:
-        im_shape = (carla_sim.IMAGE_WIDTH, carla_sim.IMAGE_HEIGHT, 1)
+        im_shape = (IMAGE_WIDTH, IMAGE_HEIGHT, 1)
 
     if source.spherical:
         concat_shape = (im_shape[0], im_shape[1] * 6, im_shape[2])

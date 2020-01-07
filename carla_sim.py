@@ -8,7 +8,6 @@ from pathlib import Path
 
 sys.path.append('~/carla/CARLA_0.9.6/carla/dist/carla-0.9.6-py3.5-linux-x86_64.egg')
 
-import carla
 import imageio
 
 import image_converter
@@ -16,12 +15,9 @@ from config import SimConfig
 from recordings import Recording
 from sides import Side, SideMap
 
-IMAGE_WIDTH = 768
-IMAGE_HEIGHT = 768
-FOV = 100
+from carla_constants import *
 
-DEPTH_MULTIPLIER = 10000.
-
+import carla
 
 class CarlaSim:
     def __init__(self,

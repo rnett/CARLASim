@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 from tqdm import tqdm
 
-import carla_sim
+from carla_constants import *
 
 
 def make_spherical_lut(lut_file, output_width, output_height):
@@ -20,16 +20,16 @@ def make_spherical_lut(lut_file, output_width, output_height):
                        endpoint=False)
 
     # CARLA parameters
-    input_width = carla_sim.IMAGE_WIDTH
-    input_height = carla_sim.IMAGE_HEIGHT
-    fov = carla_sim.FOV
+    input_width = IMAGE_WIDTH
+    input_height = IMAGE_HEIGHT
+    fov = FOV
     focal = input_width / (2 * np.tan(fov * np.pi / 360))
     c_x = input_width * 0.5
     c_y = input_height * 0.5
 
     for r in tqdm(range(output_height), desc='Height', unit='pixel'):
         phi = phis[r]
-        for c in tqdm(range(output_width), desc='Width', unit='pixel'):
+        for c in range(output_width):
             theta = thetas[c]
 
             # get XYZ point
@@ -146,16 +146,16 @@ def make_cylindrical_lut(lut_file, output_width, output_height):
                           endpoint=True)
 
     # CARLA parameters
-    input_width = carla_sim.IMAGE_WIDTH
-    input_height = carla_sim.IMAGE_HEIGHT
-    fov = carla_sim.FOV
+    input_width = IMAGE_WIDTH
+    input_height = IMAGE_HEIGHT
+    fov = FOV
     focal = input_width / (2 * np.tan(fov * np.pi / 360))
     c_x = input_width * 0.5
     c_y = input_height * 0.5
 
     for r in tqdm(range(output_height), desc='Height', unit='pixel'):
         height = heights[r]
-        for c in tqdm(range(output_width), desc='Width', unit='pixel'):
+        for c in range(output_width):
             theta = thetas[c]
 
             # select raw image
