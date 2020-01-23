@@ -28,34 +28,60 @@ class FramesMismatchError(Exception):
     pass
 
 
-def launch_server(carla_script: str, extra_args: List[str]):
+def launch_server(carla_script: str, extra_args: List[str], port=None):
     args = [carla_script]
     args.extend(extra_args)
     args.append("-quality-level=Epic")
+    args.append("-opengl")
+    if port is not None:
+        args.append("-carla-port=" + str(port))
     return subprocess.Popen(args, preexec_fn=os.setsid)
 
 
-def simulate(city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, sunset: bool = False,
-             car_idx: int = None, output_dir: str = '/data/carla/',
-             carla: str = "/home/rnett/carla/CARLA_0.9.6/CarlaUE4.sh", carla_args: List[str] = [""],
-             host: str = 'localhost', port: str = '2000', frames: int = 1000, seed: int = 123,
-             overwrite: bool = True, index: int = 0):
-    config = SimConfig(cars, pedestrians, city, rain,
-                       sunset, index)
+class SimulateArgs:
+    def __init__(self, city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, sunset: bool = False,
+                 car_idx: int = None, output_dir: str = '/data/carla/',
+                 carla: str = "/home/rnett/carla/CARLA_0.9.6/CarlaUE4.sh", carla_args: List[str] = [""],
+                 host: str = 'localhost', port='2000', frames: int = 1000, seed: int = 123,
+                 overwrite: bool = True, index: int = 0):
 
-    output_folder = Path(output_dir) / config.folder_name
+        if not isinstance(port, str):
+            port = str(port)
+
+        self.index = index
+        self.overwrite = overwrite
+        self.seed = seed
+        self.frames = frames
+        self.port = port
+        self.host = host
+        self.carla_args = carla_args
+        self.carla = carla
+        self.car_idx = car_idx
+        self.output_dir = output_dir
+        self.sunset = sunset
+        self.rain = rain
+        self.pedestrians = pedestrians
+        self.cars = cars
+        self.city = city
+
+
+def simulate(args: SimulateArgs):
+    config = SimConfig(args.cars, args.pedestrians, args.city, args.rain,
+                       args.sunset, args.index)
+
+    output_folder = Path(args.output_dir) / config.folder_name
 
     if output_folder.exists():
-        if overwrite:
+        if args.overwrite:
             shutil.rmtree(output_folder)
         else:
             if (output_folder / "raw").exists():
                 num_frames = len(list((output_folder / "raw").iterdir()))
 
-                if num_frames != 2 * 6 * frames:
+                if num_frames != 2 * 6 * args.frames:
                     raise FramesMismatchError(
                         f"Output exists in {output_folder} but has the wrong number of frames (has {num_frames}, "
-                        f"needs {6 * frames})")
+                        f"needs {6 * args.frames})")
                 print(
                     f"Output folder {output_folder} already exists and "
                     f"'overwrite' is false.")
@@ -63,8 +89,8 @@ def simulate(city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, s
             else:
                 shutil.rmtree(output_folder)
 
-    if carla != "":
-        server = launch_server(carla, carla_args)
+    if args.carla != "":
+        server = launch_server(args.carla, args.carla_args, args.port)
         time.sleep(10)
     else:
         server = None
@@ -72,12 +98,12 @@ def simulate(city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, s
     try:
         sim = CarlaSim(
             config,
-            base_output_folder=output_dir,
-            seed=seed,
-            host=str(host),
-            port=str(port),
-            car_idx=car_idx,
-            overwrite=overwrite)
+            base_output_folder=args.output_dir,
+            seed=args.seed,
+            host=str(args.host),
+            port=str(args.port),
+            car_idx=args.car_idx,
+            overwrite=args.overwrite)
 
     except Exception as e:
         if server is not None:
@@ -85,8 +111,8 @@ def simulate(city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, s
         raise e
 
     try:
-        pbar = tqdm(total=frames, desc="Sim to " + str(output_folder), unit="frames")
-        for i in range(frames * 20):
+        pbar = tqdm(total=args.frames, desc="Sim to " + str(output_folder), unit="frames")
+        for i in range(args.frames * 20):
             if sim.tick():
                 pbar.update()
         # sim.end()
@@ -233,5 +259,5 @@ if __name__ == '__main__':
     else:
         frames = 1000
 
-    simulate(city, args.cars, args.pedestrians, rain, args.time == "Sunset", car_idx, args.output_dir, args.carla,
-             args.carla_args, args.host, args.port, frames, args.seed, args.overwrite, args.index)
+    simulate(SimulateArgs(city, args.cars, args.pedestrians, rain, args.time == "Sunset", car_idx, args.output_dir, args.carla,
+             args.carla_args, args.host, args.port, frames, args.seed, args.overwrite, args.index))

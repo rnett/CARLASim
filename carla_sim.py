@@ -62,7 +62,7 @@ class CarlaSim:
             # requests
             # to the simulator. Here we'll assume the simulator is accepting
             # requests in the localhost at port 2000.
-            self.client = carla.Client('localhost', 2000)
+            self.client = carla.Client(self.host, int(self.port))
             self.client.set_timeout(2.0)
 
             # Once we have a client we can retrieve the world that is currently
@@ -206,11 +206,15 @@ class CarlaSim:
 
             blueprint_library = self.world.get_blueprint_library()
 
+            vehicles = blueprint_library.filter('vehicle')
+
+            vehicles = [v for v in vehicles if v.get_attribute('number_of_wheels').as_int() >= 4]
+
             # Add main car
             if car_idx is None:
-                bp = random.choice(blueprint_library.filter('vehicle'))
+                bp = random.choice(vehicles)
             else:
-                bp = blueprint_library.filter('vehicle')[car_idx]
+                bp = vehicles[car_idx]
 
             if bp.has_attribute('color'):
                 color = random.choice(

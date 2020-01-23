@@ -357,6 +357,7 @@ def _process(source: StitchSource, create_in):
 
     gc.collect()
 
+
 """
 Stats:
     Gzip level 5: 2092s, 8.17 GB
@@ -367,7 +368,6 @@ Stats:
     Gzip level 9: 9658.69s, 7.67 GB
     LZF: 1261.98s, 13.5 GB
 """
-
 
 if __name__ == '__main__':
 
@@ -429,32 +429,41 @@ if __name__ == '__main__':
             r: Recording
             pbar.set_postfix_str("Recording: " + str(r.base_data_dir))
 
-            data_file = r.base_data_dir / "data.hdf5"
-            if data_file.exists():
+            cylindrical_file = r.base_data_dir / "cylindrical.hdf5"
+            spherical_file = r.base_data_dir / "spherical.hdf5"
+            pinhole_file = r.base_data_dir / "pinhole.hdf5"
+
+            if cylindrical_file.exists() or spherical_file.exists() or pinhole_file.exists():
                 if args.overwrite:
-                    data_file.unlink()
+                    if cylindrical_file.exists():
+                        cylindrical_file.unlink()
+                    if spherical_file.exists():
+                        spherical_file.unlink()
+                    if pinhole_file.exists():
+                        pinhole_file.unlink()
                 elif args.all is not None:
-                    print(f"Already exists, skipping: {r.base_data_dir}")
+                    if cylindrical_file.exists() and spherical_file.exists() and pinhole_file.exists():
+                        print(f"Data already exists, skipping: {r.base_data_dir}")
+                    else:
+                        raise FileExistsError(f"Some data exists for {r.base_data_dir}, but not all of it")
                 else:
-                    raise FileExistsError
+                    raise FileExistsError("Data already exists")
 
-            with h5py.File(str(data_file), "w") as file:
+            if not args.no_cylindrical:
+                with h5py.File(str(cylindrical_file), "w") as file:
+                    _process(PanoramaStitchSource(r, args.cylindrical_lut, args.batch_size, False, True), file)
+                    _process(PanoramaStitchSource(r, args.cylindrical_lut, args.batch_size, False, False), file)
 
-                if not args.no_cylindrical:
-                    group = file.create_group("cylindrical")
-                    _process(PanoramaStitchSource(r, args.cylindrical_lut, args.batch_size, False, True), group)
-                    _process(PanoramaStitchSource(r, args.cylindrical_lut, args.batch_size, False, False), group)
+            if not args.no_spherical:
+                with h5py.File(str(spherical_file), "w") as file:
+                    _process(PanoramaStitchSource(r, args.spherical_lut, args.batch_size, True, True), file)
+                    _process(PanoramaStitchSource(r, args.spherical_lut, args.batch_size, True, False), file)
 
-                if not args.no_spherical:
-                    group = file.create_group("spherical")
-                    _process(PanoramaStitchSource(r, args.spherical_lut, args.batch_size, True, True), group)
-                    _process(PanoramaStitchSource(r, args.spherical_lut, args.batch_size, True, False), group)
+            # save pinhole frames in matching formats
 
-                # save pinhole frames in matching formats
-
-                group = file.create_group("pinhole")
+            with h5py.File(str(pinhole_file), "w") as file:
                 for side in tqdm(list(Side), desc="Saving sides", unit="side", total=len(list(Side))):
-                    side_group = group.create_group(side.name.lower())
+                    side_group = file.create_group(side.name.lower())
 
                     _process(SideStitchSource(r, side, True), side_group)
                     _process(SideStitchSource(r, side, False), side_group)
