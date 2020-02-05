@@ -33,10 +33,10 @@ from sides import Side
 
 def de_batch_gen(gen: Generator[np.ndarray, None, None]) -> Generator[np.ndarray, None, None]:
     for a in gen:
-        if np.rank(a) == 4:
+        if np.ndim(a) == 4:
             for ar in a:
                 yield ar
-        elif np.rank(a) == 3:
+        elif np.ndim(a) == 3:
             yield a
         else:
             raise ValueError
@@ -237,7 +237,8 @@ def _stich(source: PanoramaStitchSource):
     frames = source.recording.raw.frames
 
     if not source.spherical:
-        size = source.lut.shape[0] // 4
+        # TODO enabling this messes with height? / adds depth stripes even w/ height.  Maybe set in LUT creation like spherical
+        size = source.lut.shape[1] // 4
         t = np.pi / 4
         thetas = np.linspace(-t, t, size)
         all_thetas = np.concatenate((thetas[size // 2:],
@@ -246,8 +247,9 @@ def _stich(source: PanoramaStitchSource):
                                      thetas,
                                      thetas[:size // 2]))
         depth_multiplier = 1 / np.cos(all_thetas)
-        depth_multiplier = depth_multiplier[np.newaxis, :, np.newaxis]
+        depth_multiplier = depth_multiplier[np.newaxis, np.newaxis, :]
         depth_multiplier = depth_multiplier.astype('float32')
+        # depth_multiplier = np.float32(1)
     else:
         depth_multiplier = source.lut[:, :, 2].astype('float32')
 
@@ -320,7 +322,7 @@ def _process(source: StitchSource, create_in):
 
     i = 0
     for frame in source.get_frames:
-        if np.rank(frame) == 4:
+        if np.ndim(frame) == 4:
             # multiple frames
 
             dataset[i:i + len(frame), :, :, :] = frame
@@ -335,7 +337,7 @@ def _process(source: StitchSource, create_in):
             i += len(frame)
             pbar.update(len(frame))
 
-        elif np.rank(frame) == 3:
+        elif np.ndim(frame) == 3:
             # single frame
 
             dataset[i, :, :, :] = frame
@@ -408,6 +410,10 @@ if __name__ == '__main__':
                         action='store_true',
                         help="Skip spherical stitching (and lut if specified).")
 
+    parser.add_argument("--do_uploaded", "-u",
+                        action='store_true',
+                        help="Re-stitch even if it has been uploaded (./uploaded exists)")
+
     args = parser.parse_args()
 
     if args.single is not None:
@@ -433,6 +439,10 @@ if __name__ == '__main__':
             spherical_file = r.base_data_dir / "spherical.hdf5"
             pinhole_file = r.base_data_dir / "pinhole.hdf5"
 
+            if r.is_uploaded and not args.do_uploaded:
+                print(f"Stitched data for {r.base_data_dir} has already been uploaded, skipping")
+                continue
+
             if cylindrical_file.exists() or spherical_file.exists() or pinhole_file.exists():
                 if args.overwrite:
                     if cylindrical_file.exists():
@@ -444,6 +454,7 @@ if __name__ == '__main__':
                 elif args.all is not None:
                     if cylindrical_file.exists() and spherical_file.exists() and pinhole_file.exists():
                         print(f"Data already exists, skipping: {r.base_data_dir}")
+                        continue
                     else:
                         raise FileExistsError(f"Some data exists for {r.base_data_dir}, but not all of it")
                 else:

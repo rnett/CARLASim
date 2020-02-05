@@ -1,96 +1,100 @@
+import trimesh as trimesh
+
 from recordings import Recording, SingleRecordingDataset
 import numpy as np
 
-recording = Recording.from_dir("E:/carla/town01/clear/noon/cars_50_peds_200_index_0")
+recording = Recording.from_dir("E:/carla/town03/cloudy/noon/cars_40_peds_200_index_0")
 
-def header(num_points):
-    return f"""ply
-format ascii 1.0
-element vertex {num_points}
-property float x
-property float y
-property float z
-property uchar red
-property uchar green
-property uchar blue
-end_header
-"""
+def get_spherical_export(data: SingleRecordingDataset, outfile, frame: int = 200):
+    fx, cx, fy, cy = np.loadtxt("./spherical_intrinsics.txt", delimiter=' ')
 
-def get_spherical_export(data: SingleRecordingDataset, frame: int = 200):
-    rgb_frame = data.rgb[frame][:]
-    depth_frame = data.depth[frame][:, :, 0]
+    rgb = data.rgb[frame][:]
+    depth = data.depth[frame][:, :, 0]
+    depth[depth == 0] = 1
 
-    height = rgb_frame.shape[0]
-    width = rgb_frame.shape[1]
+    img_height = rgb.shape[0]
+    img_width = rgb.shape[1]
 
-    out = ""
+    py, px = np.meshgrid(range(img_height), range(img_width), indexing='ij')
+    py = (py - cy) / fy
+    px = (px - cx) / fx
+    spherical_coords = np.stack([px, py], axis=0)
+    X = np.sin(spherical_coords[0]) * np.cos(spherical_coords[1])
+    Y = np.sin(spherical_coords[1])
+    Z = np.cos(spherical_coords[0]) * np.cos(spherical_coords[1])
+    cam_coords = np.stack([X, Y, Z], axis=2) * depth[:, :, None]
 
-    thetas = np.tile(np.linspace(-np.pi, np.pi, num=width, endpoint=False), [height, 1])
-    phis = np.tile(np.linspace(-np.pi / 2, np.pi / 2, num=height,
-                               endpoint=False)[:, np.newaxis], [1, width])
+    # get vertices and colors
+    x = cam_coords[:, :, 0]
+    y = cam_coords[:, :, 1]
+    z = cam_coords[:, :, 2]
+    red = rgb[:, :, 0]
+    green = rgb[:, :, 1]
+    blue = rgb[:, :, 2]
+    vertices = np.stack([x.flatten(), y.flatten(), z.flatten()], axis=1)
+    vertex_colors = np.stack([red.flatten(), green.flatten(), blue.flatten()], axis=1)
 
-    Xs = np.sin(thetas) * np.cos(phis) * depth_frame
-    Ys = np.sin(phis) * depth_frame
-    Zs = np.cos(thetas) * np.cos(phis) * depth_frame
+    # make triangle faces
+    def get_index(r, c):
+        return r * img_width + (c % img_width)
 
-    for y in range(height):
-        for x in range(width):
-            color = rgb_frame[y, x]
-            red = color[0]
-            green = color[1]
-            blue = color[2]
+    faces = []
+    for r in range(img_height - 1):
+        for c in range(img_width):
+            faces.append([get_index(r, c), get_index(r + 1, c), get_index(r, c + 1)])
+            faces.append([get_index(r + 1, c), get_index(r + 1, c + 1), get_index(r, c + 1)])
+    faces = np.stack(faces, axis=0)
 
-            X = Xs[y, x]
-            Y = Ys[y, x]
-            Z = Zs[y, x]
-
-            out += f"{X} {Y} {Z} {red} {green} {blue}\n"
-
-    return out
-
-
-def get_cylindrical_export(data: SingleRecordingDataset, frame: int = 200):
-    rgb_frame = data.rgb[frame][:]
-    depth_frame = data.depth[frame][:, :, 0]
-
-    height = rgb_frame.shape[0]
-    width = rgb_frame.shape[1]
-
-    out = ""
-
-    thetas = np.tile(np.linspace(-np.pi, np.pi, num=width, endpoint=False), [height, 1])
-    heights = np.tile(np.linspace(-0.5, 0.5, num=height,
-                                  endpoint=True)[:, np.newaxis], [1, width])
-
-    Xs = np.sin(thetas) * depth_frame
-    Zs = np.cos(thetas) * depth_frame
-
-    #TODO is wrong
-    Ys = heights * np.sqrt(np.square(Xs) + np.square(Zs))
-
-    for y in range(height):
-        for x in range(width):
-            color = rgb_frame[y, x]
-            red = color[0]
-            green = color[1]
-            blue = color[2]
-
-            X = Xs[y, x]
-            Y = Ys[y, x]
-            Z = Zs[y, x]
-
-            out += f"{X} {Y} {Z} {red} {green} {blue}\n"
-
-    return out
+    # export using trimesh
+    T = trimesh.Trimesh(vertices=vertices, vertex_colors=vertex_colors, faces=faces)
+    T.export(outfile)
 
 
-with recording.data as data:
-    spherical = get_spherical_export(data.spherical)
-    cylindrical = get_cylindrical_export(data.cylindrical)
+def get_cylindrical_export(data: SingleRecordingDataset, outfile, frame: int = 200):
+    fx, cx, fy, cy = np.loadtxt("./cylindrical_intrinsics.txt", delimiter=' ')
 
-    num_points = 1024 * 2048
 
-    open("spherical_mesh.ply", 'w').write(header(num_points) + spherical)
-    open("cylindrical_mesh.ply", 'w').write(header(num_points) + cylindrical)
+    rgb = data.rgb[frame][:]
+    depth = data.depth[frame][:, :, 0]
+    depth[depth == 0] = 1
 
-    open("both_mesh.ply", 'w').write(header(num_points * 2) + spherical + cylindrical)
+    img_height = rgb.shape[0]
+    img_width = rgb.shape[1]
+
+    py, px = np.meshgrid(range(img_height), range(img_width), indexing='ij')
+    py = (py - cy) / fy
+    px = (px - cx) / fx
+    cylinder_coords = np.stack([px, py], axis=0)
+    X = np.sin(cylinder_coords[0])
+    Y = cylinder_coords[1]
+    Z = np.cos(cylinder_coords[0])
+    cam_coords = np.stack([X, Y, Z], axis=2) * depth[:, :, None]
+
+    # get vertices and colors
+    x = cam_coords[:, :, 0]
+    y = cam_coords[:, :, 1]
+    z = cam_coords[:, :, 2]
+    red = rgb[:, :, 0]
+    green = rgb[:, :, 1]
+    blue = rgb[:, :, 2]
+    vertices = np.stack([x.flatten(), y.flatten(), z.flatten()], axis=1)
+    vertex_colors = np.stack([red.flatten(), green.flatten(), blue.flatten()], axis=1)
+
+    # make triangle faces
+    def get_index(r, c):
+        return r * img_width + (c % img_width)
+
+    faces = []
+    for r in range(img_height - 1):
+        for c in range(img_width):
+            faces.append([get_index(r, c), get_index(r + 1, c), get_index(r, c + 1)])
+            faces.append([get_index(r + 1, c), get_index(r + 1, c + 1), get_index(r, c + 1)])
+    faces = np.stack(faces, axis=0)
+
+    # export using trimesh
+    T = trimesh.Trimesh(vertices=vertices, vertex_colors=vertex_colors, faces=faces)
+    T.export(outfile)
+
+
+get_spherical_export(recording.data.spherical, "spherical_mesh.ply")
+get_cylindrical_export(recording.data.cylindrical, "cylindrical_mesh.ply")

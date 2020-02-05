@@ -199,7 +199,7 @@ class PinholeStitchedRecordingData(RecordingData):
 
 @dataclass
 class SingleRecordingDataset:
-    _group: h5py.Group
+    _group: h5py.File
 
     @property
     def rgb(self) -> h5py.Dataset:
@@ -209,9 +209,12 @@ class SingleRecordingDataset:
     def depth(self) -> h5py.Dataset:
         return self._group['depth']
 
+    def close(self):
+        self._group.close()
+
 
 class SplitRecordingDataset:
-    def __init__(self, group: h5py.Group):
+    def __init__(self, group: h5py.File):
         self._group = group
 
         self.top: SingleRecordingDataset = self[Side.Top]
@@ -224,20 +227,25 @@ class SplitRecordingDataset:
     def __getitem__(self, side: Side) -> SingleRecordingDataset:
         return SingleRecordingDataset(self._group[side.name.lower()])
 
+    def close(self):
+        self._group.close()
+
 
 class RecordingDataset:
-    def __init__(self, file: h5py.File):
-        self._file = file
+    def __init__(self, base_dir: Path):
+        self.base_dir = base_dir
 
-        self.spherical: SingleRecordingDataset = SingleRecordingDataset(self._file["spherical"])
-        self.cylindrical: SingleRecordingDataset = SingleRecordingDataset(self._file["spherical"])
-        self.pinhole: SplitRecordingDataset = SplitRecordingDataset(self._file["pinhole"])
+    @property
+    def spherical(self) -> SingleRecordingDataset:
+        return SingleRecordingDataset(h5py.File(self.base_dir / "spherical.hdf5", 'r'))
 
-    def __enter__(self):
-        return self
+    @property
+    def cylindrical(self) -> SingleRecordingDataset:
+        return SingleRecordingDataset(h5py.File(self.base_dir / "cylindrical.hdf5", 'r'))
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self._file.close()
+    @property
+    def pinhole(self) -> SplitRecordingDataset:
+        return SplitRecordingDataset(h5py.File(self.base_dir / "pinhole.hdf5", 'r'))
 
 
 class Recording:
@@ -249,17 +257,18 @@ class Recording:
 
         self.base_dir = base_dir.absolute().resolve()
 
-        self.base_data_dir = self.base_dir / config.folder_name
+        self.base_data_dir: Path = self.base_dir / config.folder_name
         self.raw_data_dir = self.base_data_dir / "raw"
 
         self._raw = None
 
-        self.data_file = self.base_data_dir / "data.hdf5"
-        self._open_data = None
+    @property
+    def is_uploaded(self) -> bool:
+        return (self.base_data_dir / "uploaded").exists()
 
     @property
     def data(self) -> RecordingDataset:
-        return RecordingDataset(h5py.File(self.data_file, "r"))
+        return RecordingDataset(self.base_data_dir)
 
     def __repr__(self):
         return repr(self.base_data_dir)

@@ -131,7 +131,7 @@ def load_spherical_intrinsics(intrinsics_file: Path = Path("./spherical_intrinsi
     :return: (f_theta, c_theta, f_phi, c_phi)
     """
     txt = intrinsics_file.open("r").read()
-    return (np.float32(t) for t in txt)
+    return (np.float32(t) for t in txt.split(' '))
 
 
 def make_cylindrical_lut(lut_file, output_width, output_height):
@@ -159,13 +159,13 @@ def make_cylindrical_lut(lut_file, output_width, output_height):
             theta = thetas[c]
 
             # select raw image
-            if theta >= -3 * np.pi / 4 and theta < -np.pi / 4:
+            if -3 * np.pi / 4 <= theta < -np.pi / 4:
                 ind = 1
                 theta_offset = np.pi / 2  # left
-            elif theta >= -np.pi / 4 and theta < np.pi / 4:
+            elif -np.pi / 4 <= theta < np.pi / 4:
                 ind = 2
                 theta_offset = 0  # forward
-            elif theta >= np.pi / 4 and theta < 3 * np.pi / 4:
+            elif np.pi / 4 <= theta < 3 * np.pi / 4:
                 ind = 3
                 theta_offset = -np.pi / 2  # right
             else:
@@ -220,7 +220,7 @@ def load_cylindrical_intrinsics(intrinsics_file: Path = Path("./cylindrical_intr
     :return: (f_theta, c_theta, f_Z, c_Z)
     """
     txt = intrinsics_file.open("r").read()
-    return (np.float32(t) for t in txt)
+    return (np.float32(t) for t in txt.split(' '))
 
 
 if __name__ == '__main__':
