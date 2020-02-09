@@ -14,9 +14,7 @@ def do_sim(args: SimulateArgs):
             break
             pass
         except FramesMismatchError as fme:
-            print(fme)
-            traceback.print_exc()
-            break
+            raise fme
         except Exception as e:
             print(e)
             traceback.print_exc()
