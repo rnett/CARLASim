@@ -46,7 +46,8 @@ if __name__ == '__main__':
             fs.put(str(cylindrical_file), base_dir + r.config.folder_name + "/cylindrical.hdf5")
             fs.put(str(spherical_file), base_dir + r.config.folder_name + "/spherical.hdf5")
             fs.put(str(pinhole_file), base_dir + r.config.folder_name + "/pinhole.hdf5")
-            fs.put(str(r.base_data_dir / "seed.txt"), base_dir + r.config.folder_name + "/seed.txt")
+            fs.put(str(r.raw_data_dir / "seed.txt"), base_dir + r.config.folder_name + "/seed.txt")
+            fs.put(str(r.raw_data_dir / "pose.hdf5"), base_dir + r.config.folder_name + "/pose.hdf5")
 
             if remove:
                 cylindrical_file.unlink()

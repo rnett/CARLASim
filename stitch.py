@@ -237,7 +237,6 @@ def _stich(source: PanoramaStitchSource):
     frames = source.recording.raw.frames
 
     if not source.spherical:
-        # TODO enabling this messes with height? / adds depth stripes even w/ height.  Maybe set in LUT creation like spherical
         size = source.lut.shape[1] // 4
         t = np.pi / 4
         thetas = np.linspace(-t, t, size)

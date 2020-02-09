@@ -259,6 +259,7 @@ class Recording:
 
         self.base_data_dir: Path = self.base_dir / config.folder_name
         self.raw_data_dir = self.base_data_dir / "raw"
+        self.raw_frame_dir = self.raw_data_dir / "frames"
 
         self._raw = None
 
@@ -279,7 +280,7 @@ class Recording:
     @property
     def raw(self) -> RawRecordingData:
         if self._raw is None:
-            self._raw = RawRecordingData(self.raw_data_dir)
+            self._raw = RawRecordingData(self.raw_frame_dir)
 
         return self._raw
 

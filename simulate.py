@@ -76,7 +76,7 @@ def simulate(args: SimulateArgs):
             shutil.rmtree(output_folder)
         else:
             if (output_folder / "raw").exists():
-                num_frames = len(list((output_folder / "raw").iterdir()))
+                num_frames = len(list((output_folder / "raw/frames").iterdir()))
 
                 if num_frames != 2 * 6 * args.frames:
                     raise FramesMismatchError(
@@ -121,7 +121,6 @@ def simulate(args: SimulateArgs):
         if server is not None:
             os.killpg(os.getpgid(server.pid), signal.SIGKILL)
         return
-    return
 
 
 if __name__ == '__main__':

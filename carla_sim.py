@@ -2,9 +2,12 @@ import logging
 import os
 import random
 import shutil
+import numpy as np
 
 import sys
 from pathlib import Path
+
+import h5py
 
 sys.path.append('~/carla/CARLA_0.9.6/carla/dist/carla-0.9.6-py3.5-linux-x86_64.egg')
 
@@ -18,6 +21,7 @@ from sides import Side, SideMap
 from carla_constants import *
 
 import carla
+
 
 class CarlaSim:
     def __init__(self,
@@ -41,6 +45,8 @@ class CarlaSim:
 
         self.output_folder = base_output_folder + self.config.folder_name + '/'
 
+        self.frame_output_folder = self.output_folder + "raw/frames/"
+
         self.recording = Recording(base_output_folder, config)
 
         if os.path.exists(self.output_folder):
@@ -54,8 +60,18 @@ class CarlaSim:
         else:
             Path(self.output_folder).mkdir(exist_ok=True, parents=True)
 
-        with open(self.output_folder + "seed.txt", 'x') as seed_file:
+            Path(self.frame_output_folder).mkdir(exist_ok=True, parents=True)
+        with open(self.output_folder + "raw/seed.txt", 'x') as seed_file:
             seed_file.write(str(seed))
+
+        self.pose_file = h5py.File(self.output_folder + "raw/pose.hdf5", 'w')
+        self.abs_pose = self.pose_file.create_dataset("abs_pose", (0, 6), 'float32', maxshape=(None, 6))
+        self.rel_pose = self.pose_file.create_dataset("rel_pose", (0, 6), 'float32', maxshape=(None, 6))
+        self.start_rel_pose = self.pose_file.create_dataset("start_rel_pose", (0, 6), 'float32', maxshape=(None, 6))
+        self.last_pose = None
+        self.start_pose = None
+
+        self.frames = 0
 
         try:
             # First of all, we need to create the client that will send the
@@ -277,7 +293,6 @@ class CarlaSim:
 
     def tick(self):
         frame = self.world.tick()
-        cc = carla.ColorConverter.Depth
 
         car_loc = self.car.get_transform()
         vec = car_loc.get_forward_vector()
@@ -293,18 +308,39 @@ class CarlaSim:
             images = self.rgb_cameras.pop(frame)
             for k, v in images.items():
                 v.save_to_disk(
-                    self.output_folder + f"raw/{k.name.lower()}_"
-                                         f"{int(self.ticks / 20)}_rgb.png")
-
-        if self.ticks % 20 == 0:
+                    self.frame_output_folder + f"{k.name.lower()}_"
+                                               f"{int(self.ticks / 20)}_rgb.png")
             images = self.depth_cameras.pop(frame)
             for k, v in images.items():
                 norm_depth = image_converter.depth_to_array(v)
 
                 imageio.imwrite(
-                    self.output_folder + f"raw/{k.name.lower()}_"
-                                         f"{int(self.ticks / 20)}_depth.png",
+                    self.frame_output_folder + f"{k.name.lower()}_"
+                                               f"{int(self.ticks / 20)}_depth.png",
                     (norm_depth * DEPTH_MULTIPLIER).astype('uint16'))
+
+            orientation = np.array([vec.x, vec.y, vec.z])
+            pose = np.array([loc.x, loc.y, loc.z])
+            pose = np.concatenate([pose, orientation])
+
+            self.abs_pose.resize(self.frames + 1, axis=0)
+            self.rel_pose.resize(self.frames + 1, axis=0)
+            self.start_rel_pose.resize(self.frames + 1, axis=0)
+
+            self.abs_pose[-1] = pose
+
+            if self.last_pose is None:
+                self.rel_pose[-1] = np.zeros((6,), 'float32')
+                self.start_rel_pose[-1] = np.zeros((6,), 'float32')
+
+                self.start_pose = pose
+            else:
+                self.rel_pose[-1] = pose - self.last_pose
+                self.start_rel_pose[-1] = pose - self.start_pose
+
+            self.last_pose = pose
+
+            self.frames += 1
 
         self.ticks += 1
 

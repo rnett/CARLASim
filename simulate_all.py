@@ -10,6 +10,7 @@ from simulate import SimulateArgs
 
 sims = []
 
+NON_CLEAR = False
 
 def num_cars(city: City):
     if city is City.Town01:
@@ -48,7 +49,7 @@ for city in list(City):
             port += 2
             sims.append((city, rain, True, 1, port))
             port += 2
-        else:
+        elif NON_CLEAR:
             sims.append((city, rain, False, 0, port))
             port += 2
             sims.append((city, rain, False, 1, port))
