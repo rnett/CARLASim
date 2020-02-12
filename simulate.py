@@ -78,6 +78,10 @@ def simulate(args: SimulateArgs):
             if (output_folder / "raw").exists():
                 num_frames = len(list((output_folder / "raw/frames").iterdir()))
 
+                #TODO make flag
+                # if num_frames == 0:
+                #     shutil.rmtree(output_folder)
+                # else:
                 if num_frames != 2 * 6 * args.frames:
                     raise FramesMismatchError(
                         f"Output exists in {output_folder} but has the wrong number of frames (has {num_frames}, "
