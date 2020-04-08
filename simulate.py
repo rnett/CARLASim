@@ -42,7 +42,7 @@ class SimulateArgs:
     def __init__(self, city: City, cars: int, pedestrians: int, rain: Rain = Rain.Clear, sunset: bool = False,
                  car_idx: int = None, output_dir: str = '/data/carla/',
                  carla: str = "/home/rnett/carla/CARLA_0.9.6/CarlaUE4.sh", carla_args: List[str] = [""],
-                 host: str = 'localhost', port='2000', frames: int = 1000, seed: int = 123,
+                 host: str = 'localhost', port='2000', frames: int = 1000, fps: int=5, seed: int = 123,
                  overwrite: bool = True, index: int = 0):
 
         if not isinstance(port, str):
@@ -52,6 +52,7 @@ class SimulateArgs:
         self.overwrite = overwrite
         self.seed = seed
         self.frames = frames
+        self.fps = fps
         self.port = port
         self.host = host
         self.carla_args = carla_args
@@ -99,6 +100,11 @@ def simulate(args: SimulateArgs):
     else:
         server = None
 
+    ticks_per_frame = 20 / args.fps
+    if int(ticks_per_frame) != ticks_per_frame:
+        raise ValueError("FPS must be a factor of 20 (e.g. 5, 10, 20)")
+    ticks_per_frame = int(ticks_per_frame)
+
     try:
         sim = CarlaSim(
             config,
@@ -107,6 +113,7 @@ def simulate(args: SimulateArgs):
             host=str(args.host),
             port=str(args.port),
             car_idx=args.car_idx,
+            ticks_per_frame=ticks_per_frame,
             overwrite=args.overwrite)
 
     except Exception as e:
@@ -116,9 +123,11 @@ def simulate(args: SimulateArgs):
 
     try:
         pbar = tqdm(total=args.frames, desc="Sim to " + str(output_folder), unit="frames")
-        for i in range(args.frames * 20):
+        frames = 0
+        while frames < args.frames:
             if sim.tick():
                 pbar.update()
+                frames += 1
         # sim.end()
     finally:
         # sim.end()
@@ -194,6 +203,12 @@ if __name__ == '__main__':
                         help="Number of frames to run the simulation for ('frame' == image saved, a frame is saved "
                              "every 20 ticks).  If --ticks/-t is also present, must be match (frames * 20 == ticks).")
 
+    parser.add_argument("--fps",
+                        default=5,
+                        type=int,
+                        nargs='?',
+                        help="FPS to record frames at.  Default is 5.")
+
     parser.add_argument("--ticks", "-t",
                         type=int,
                         nargs='?',
@@ -263,4 +278,4 @@ if __name__ == '__main__':
         frames = 1000
 
     simulate(SimulateArgs(city, args.cars, args.pedestrians, rain, args.time == "Sunset", car_idx, args.output_dir, args.carla,
-             args.carla_args, args.host, args.port, frames, args.seed, args.overwrite, args.index))
+             args.carla_args, args.host, args.port, frames, args.fps, args.seed, args.overwrite, args.index))

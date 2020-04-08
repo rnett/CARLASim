@@ -29,12 +29,14 @@ class CarlaSim:
                  base_output_folder: str = '/data/carla/',
                  overwrite: bool = False,
                  seed=123,
+                 ticks_per_frame=4,
                  car_idx=None,
                  host='localhost', port='2000'):
 
         random.seed(seed)
 
         self.config = config
+        self.ticks_per_frame = ticks_per_frame
         self.num_peds = config.pedestrians
         self.num_cars = config.cars
         self.host = host
@@ -304,7 +306,7 @@ class CarlaSim:
         self.world.get_spectator().set_transform(
             carla.Transform(new_loc, car_loc.rotation))
 
-        if self.ticks % 20 == 0:
+        if self.ticks % self.ticks_per_frame == 0:
             images = self.rgb_cameras.pop(frame)
             for k, v in images.items():
                 v.save_to_disk(

@@ -1,4 +1,6 @@
 import gc
+
+import imageio
 import numpy as np
 from pathlib import Path
 
@@ -8,7 +10,9 @@ from tqdm import tqdm
 from recordings import Recording, SplitFrame, SingleFrame
 from sides import Side
 
-recordings = [Recording.from_dir("E:/carla/town03/cloudy/noon/cars_40_peds_200_index_0"), ]
+recordings = [Recording.from_dir("E:/carla/town01/clear/noon/cars_30_peds_200_index_0"), ]
+
+SAVE_FRAME = 50
 
 pbar = tqdm(recordings, desc="Recordings")
 
@@ -36,7 +40,9 @@ for recording in pbar:
     data = np.multiply(data, np.float32(255) / (max_scale / 2), out=data)
     data = data.astype('uint8')
 
-    for frame in tqdm(data, desc="Frames", unit='frame'):
+    for i, frame in enumerate(tqdm(data, desc="Frames", unit='frame')):
+        if i == SAVE_FRAME:
+            imageio.imwrite(str(recording.base_data_dir / "sample_cylindrical_depth.png"), frame)
         process.stdin.write(frame.tobytes())
 
     process.stdin.close()
@@ -63,7 +69,9 @@ for recording in pbar:
     data = np.multiply(data, np.float32(255) / (max_scale / 2), out=data)
     data = data.astype('uint8')
 
-    for frame in tqdm(data, desc="Frames", unit='frame'):
+    for i, frame in enumerate(tqdm(data, desc="Frames", unit='frame')):
+        if i == SAVE_FRAME:
+            imageio.imwrite(str(recording.base_data_dir / "sample_spherical_depth.png"), frame)
         process.stdin.write(frame.tobytes())
 
     process.stdin.close()
@@ -82,7 +90,9 @@ for recording in pbar:
             .global_args('-loglevel', 'quiet', "-preset", "ultrafast", "-crf", "12")
     ).run_async(pipe_stdin=True)
 
-    for frame in tqdm(recording.data.cylindrical.rgb[100:300], desc="Frames", unit='frame'):
+    for i, frame in enumerate(tqdm(recording.data.cylindrical.rgb[100:300], desc="Frames", unit='frame')):
+        if i == SAVE_FRAME:
+            imageio.imwrite(str(recording.base_data_dir / "sample_cylindrical_rgb.png"), frame)
         process.stdin.write(frame.tobytes())
 
     process.stdin.close()
@@ -99,7 +109,9 @@ for recording in pbar:
             .global_args('-loglevel', 'quiet', "-preset", "ultrafast", "-crf", "12")
     ).run_async(pipe_stdin=True)
 
-    for frame in tqdm(recording.data.spherical.rgb[100:300], desc="Frames", unit='frame'):
+    for i, frame in enumerate(tqdm(recording.data.spherical.rgb[100:300], desc="Frames", unit='frame')):
+        if i == SAVE_FRAME:
+            imageio.imwrite(str(recording.base_data_dir / "sample_spherical_rgb.png"), frame)
         process.stdin.write(frame.tobytes())
 
     process.stdin.close()
