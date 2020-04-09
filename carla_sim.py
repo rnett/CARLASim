@@ -306,19 +306,20 @@ class CarlaSim:
         self.world.get_spectator().set_transform(
             carla.Transform(new_loc, car_loc.rotation))
 
-        if self.ticks % self.ticks_per_frame == 0:
+        do_save = self.ticks % self.ticks_per_frame == 0
+        if do_save:
             images = self.rgb_cameras.pop(frame)
             for k, v in images.items():
                 v.save_to_disk(
                     self.frame_output_folder + f"{k.name.lower()}_"
-                                               f"{int(self.ticks / 20)}_rgb.png")
+                                               f"{int(self.frames)}_rgb.png")
             images = self.depth_cameras.pop(frame)
             for k, v in images.items():
                 norm_depth = image_converter.depth_to_array(v)
 
                 imageio.imwrite(
                     self.frame_output_folder + f"{k.name.lower()}_"
-                                               f"{int(self.ticks / 20)}_depth.png",
+                                               f"{int(self.frames)}_depth.png",
                     (norm_depth * DEPTH_MULTIPLIER).astype('uint16'))
 
             orientation = np.array([vec.x, vec.y, vec.z])
@@ -346,7 +347,7 @@ class CarlaSim:
 
         self.ticks += 1
 
-        return (self.ticks - 1) % 20 == 0
+        return do_save
 
     def end(self):
         for a in self.cars:
