@@ -45,10 +45,10 @@ for city in list(City):
                 sims.append((city, rain, False, i, port))
                 port += 2
 
-            sims.append((city, rain, True, 0, port))
-            port += 2
-            sims.append((city, rain, True, 1, port))
-            port += 2
+            # sims.append((city, rain, True, 0, port))
+            # port += 2
+            # sims.append((city, rain, True, 1, port))
+            # port += 2
         elif NON_CLEAR:
             sims.append((city, rain, False, 0, port))
             port += 2
@@ -60,7 +60,7 @@ for city in list(City):
 
 sims = [SimulateArgs(sim[0], num_cars(sim[0]), 200, sim[1], sim[2], seed=np.random.randint(0, 100000), overwrite=False,
                      index=sim[3], port=sim[4]) for sim in sims]
-# do_sim(sims[0])
+
 # pool = Pool(processes=2)
 
 #pool.imap

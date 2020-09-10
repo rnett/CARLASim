@@ -15,6 +15,7 @@ import numpy as np
 import utils
 from carla_constants import *
 from utils import save_data, stitch_image_tensors
+import matplotlib.pyplot as plt
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -265,7 +266,7 @@ def _stich(source: PanoramaStitchSource):
             stitch_image_tensors(source.lut[:, :, 0:2],
                                  batch,
                                  depth_multiplier,
-                                 mask,
+                                 mask, #TODO try without
                                  source.rgb)).astype(im_type)
 
         # if mask is not None:
@@ -325,6 +326,14 @@ def _process(source: StitchSource, create_in):
             # multiple frames
 
             dataset[i:i + len(frame), :, :, :] = frame
+
+
+            # if not source.rgb:
+            #     depth = frame[0][:, :, 0]
+            #     depth[depth >= 10000] = 10000
+            #     plt.imshow(depth, cmap='gray', vmin=0, vmax=np.max(depth))
+            #     plt.show()
+            #     print()
 
             if source.should_video:
                 for f in frame:
@@ -459,21 +468,32 @@ if __name__ == '__main__':
                 else:
                     raise FileExistsError("Data already exists")
 
-            if not args.no_cylindrical:
-                with h5py.File(str(cylindrical_file), "w") as file:
-                    _process(PanoramaStitchSource(r, args.cylindrical_lut, args.batch_size, False, True), file)
-                    _process(PanoramaStitchSource(r, args.cylindrical_lut, args.batch_size, False, False), file)
+            try:
+                if not args.no_cylindrical:
+                    with h5py.File(str(cylindrical_file), "w") as file:
+                        _process(PanoramaStitchSource(r, args.cylindrical_lut, args.batch_size, False, True), file)
+                        _process(PanoramaStitchSource(r, args.cylindrical_lut, args.batch_size, False, False), file)
 
-            if not args.no_spherical:
-                with h5py.File(str(spherical_file), "w") as file:
-                    _process(PanoramaStitchSource(r, args.spherical_lut, args.batch_size, True, True), file)
-                    _process(PanoramaStitchSource(r, args.spherical_lut, args.batch_size, True, False), file)
+                if not args.no_spherical:
+                    with h5py.File(str(spherical_file), "w") as file:
+                        _process(PanoramaStitchSource(r, args.spherical_lut, args.batch_size, True, True), file)
+                        _process(PanoramaStitchSource(r, args.spherical_lut, args.batch_size, True, False), file)
 
-            # save pinhole frames in matching formats
+                # save pinhole frames in matching formats
 
-            with h5py.File(str(pinhole_file), "w") as file:
-                for side in tqdm(list(Side), desc="Saving sides", unit="side", total=len(list(Side))):
-                    side_group = file.create_group(side.name.lower())
+                with h5py.File(str(pinhole_file), "w") as file:
+                    for side in tqdm(list(Side), desc="Saving sides", unit="side", total=len(list(Side))):
+                        side_group = file.create_group(side.name.lower())
 
-                    _process(SideStitchSource(r, side, True), side_group)
-                    _process(SideStitchSource(r, side, False), side_group)
+                        _process(SideStitchSource(r, side, True), side_group)
+                        _process(SideStitchSource(r, side, False), side_group)
+            except Exception as e:
+                if cylindrical_file.exists():
+                    cylindrical_file.unlink()
+                if spherical_file.exists():
+                    spherical_file.unlink()
+                if pinhole_file.exists():
+                    pinhole_file.unlink()
+
+                print("Errored on", r.base_data_dir)
+                # raise e

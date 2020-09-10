@@ -173,7 +173,7 @@ def stitch_image_tensors(lut, images, depth_multiplier, mask, rgb: bool):
     coords = tf.concat([lutx_re, luty_re], axis=-1)
 
     if not rgb:
-        pano = bilinear_sampler(imgs, coords, mask=mask)
+        pano = bilinear_sampler(imgs, coords) # , mask=mask
     else:
         pano = bilinear_sampler(imgs, coords)
 

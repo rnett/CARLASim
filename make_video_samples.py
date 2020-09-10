@@ -10,7 +10,7 @@ from tqdm import tqdm
 from recordings import Recording, SplitFrame, SingleFrame
 from sides import Side
 
-recordings = [Recording.from_dir("E:/carla/town01/clear/noon/cars_30_peds_200_index_0"), ]
+recordings = [Recording.from_dir("E:/carla2/town01/clear/noon/cars_30_peds_200_index_5"), ]
 
 SAVE_FRAME = 50
 

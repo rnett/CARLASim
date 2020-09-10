@@ -9,13 +9,14 @@ if __name__ == '__main__':
     args = argv[1:]
 
     remove = False
-    if "-r" in args:
-        remove = True
-        args.remove("-r")
-
     if "--remove" in args:
         remove = True
         args.remove("--remove")
+
+    re_upload = False
+    if "--reupload" in args:
+        re_upload = True
+        args.remove("--reupload")
 
     if args[0] == "a" or args[0] == "all":
         recordings = Recording.all_in_dir(args[1])
@@ -28,6 +29,9 @@ if __name__ == '__main__':
 
     pbar = tqdm(recordings, desc="Recordings")
     for r in pbar:
+        if r.is_uploaded and not re_upload:
+            pbar.update()
+            continue
         # if r.is_uploaded:
         #     cylindrical_file = r.base_data_dir / "cylindrical.hdf5"
         #     spherical_file = r.base_data_dir / "spherical.hdf5"
@@ -57,4 +61,5 @@ if __name__ == '__main__':
             (r.base_data_dir / "uploaded").touch(exist_ok=True)
         else:
             print(f"Missing some stitched data in {r.base_data_dir}, skipping")
+            pbar.update()
             continue
