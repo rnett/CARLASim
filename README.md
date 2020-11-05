@@ -1,24 +1,18 @@
 
-## Dataset Structure
+# Overview
 
-Town1-5
-* Clear
-    * Noon
-        * 5 runs
-    * Sunset
-        * 2 runs
-* WetCloudy
-    * Noon
-        * 1 runs
-* Hard
-    * Noon
-        * 2 runs
-            
-10 runs per city, 50 runs total, 50,000 frames.
+This is the simulation code used for my thesis, *Dataset and Evaluation of Self-Supervised Learning for Panoramic Depth Estimation*.
 
-10 GB per run for everything in hdf5.  2 GB for rgb video and hdf5 depth.
+Useful scripts are `simulate.py`, `make_luts.py`, `stitch.py`, and `upload.py`, all of which have argparse help except `upload.py`.
 
-~500/100 GB for everything in hdf5/rgb video depth hdf5.
+`upload.py` usage:
 
-May be closer to 36 using video for rgb.
+Takes either a list of recording directories, or "a/all <base_dir>" ("a" or "all") to upload all.
+If --remove is present, removed data files after upload.
+If --reupload is present, uploads files even if they have already been uploaded (upload file is present).
 
+Carla constants are in `carla_constants.py`.
+
+`export.py` exports depthmaps as mesh (`.ply`) files.  The recording is hard coded in the script.
+`make_image_sample.py`, `make_samples.py`, and `make_video_samples.py` are utility scripts that aren't intended for anyone else's use, but the source may be informative.
+`simulate_all.py` is similar: it is used to run batches of simulations using hardcoded parameters.

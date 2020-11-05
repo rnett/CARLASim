@@ -5,6 +5,11 @@ from tqdm import tqdm
 
 from recordings import Recording
 
+'''
+Takes either a list of recording directories, or "a/all <base_dir>" to upload all.
+If --remove is present, removed data files after upload.
+If --reupload is present, uploads files even if they have already been uploaded (upload file is present).
+'''
 if __name__ == '__main__':
     args = argv[1:]
 
